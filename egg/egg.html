@@ -79,7 +79,8 @@ var canvas = document.getElementById('pixel');
 var canvasCtx = canvas.getContext('2d');
 
 var updateImage = function() {
-	if(!this.files || !this.files[0]) return;
+	var inf = document.getElementById('input');
+	if(!inf.files || !inf.files[0]) return;
 	var r = new FileReader();
 	r.onload = function(ev) {
 		imgBuf.src = ev.target.result;
@@ -87,7 +88,7 @@ var updateImage = function() {
 		canvas.height = imgBuf.height;
 		canvasCtx.drawImage(imgBuf,0,0);
 	}
-	r.readAsDataURL(this.files[0]);
+	r.readAsDataURL(inf.files[0]);
 }
 document.getElementById('input').onchange = updateImage();
 var svg = null;
