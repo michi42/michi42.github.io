@@ -1,0 +1,167 @@
+<!doctype html>
+<html><head><title>test</title>
+<style>
+body {
+	font-family: sans-serif;
+}
+#pixel {
+	max-width: 350px;
+	max-height: 400px;
+	display: block;
+	float: left;
+}
+#svgcontainer {
+	float: left;
+}
+#svgcontainer svg {
+	max-width: 350px;
+	max-height: 400px;
+	min-width: 350px;
+	min-height: 400px;
+	display: block;
+}
+#config, #pxfieldset, #svgfieldset {
+	float: left;
+}
+#config {
+	width: 300px;
+}
+#config label {
+	display: block;
+	vertical-align: middle;
+	clear: both;
+}
+#config label input, #config label select {
+	float: right;
+	display: block;
+}
+#process {
+	float: left;
+}
+#download {
+	float: right;
+}
+</style>
+<script src="svg.js"></script>
+<script src="FileSaver.js"></script>
+<meta charset="utf-8" />
+</head>
+<body>
+<fieldset id="config"><legend>Config</legend>
+<label>Bild: <input type="file" id="input" /></label>
+<label>Farbkanal: <select id="in_colorchannel"><option value="0" selected>R</option><option value="1">G</option><option value="2">B</option></select>
+<label>Schwellenwert: <input id="in_threshold" type="number" value="150" /></label>
+
+<br />
+
+<label>Schraffurwinkel: <input id="in_angle" type="number" value="45" /></label>
+<label>Schraffurabstand: <input id="in_dist" type="number" value="5" /></label>
+<label>Liniendicke: <input id="in_width" type="number" value="2" /></label>
+<label>Auflösung: <input id="in_res" type="number" value="2" /></label>
+<label>Minimallänge: <input id="in_minlen" type="number" value="5" /></label>
+
+<br />
+<button id="process">Schraffur zeichnen</button>
+<button id="download">SVG speichern</button>
+
+</fieldset>
+<fieldset id="pxfieldset">
+<legend>Original</legend>
+<canvas id="pixel"></canvas>
+</fieldset>
+<fieldset id="svgfieldset">
+<legend>SVG</legend>
+<div id="svgcontainer"></div>
+</fieldset>
+<script>
+var imgBuf = new Image();
+var canvas = document.getElementById('pixel');
+var canvasCtx = canvas.getContext('2d');
+
+document.getElementById('input').onchange = function() {
+	if(!this.files || !this.files[0]) return;
+	var r = new FileReader();
+	r.onload = function(ev) {
+		imgBuf.src = ev.target.result;
+		canvas.width = imgBuf.width;
+		canvas.height = imgBuf.height;
+		canvasCtx.drawImage(imgBuf,0,0);
+	}
+	r.readAsDataURL(this.files[0]);
+}
+
+var svg = null;
+
+document.getElementById('process').onclick = function() {
+	var imgData = canvasCtx.getImageData(0,0,canvas.width,canvas.height);
+
+	var px_threshold = parseInt(document.getElementById('in_threshold').value);
+	var len_threshold = parseInt(document.getElementById('in_minlen').value);
+	var angle = parseFloat(document.getElementById('in_angle').value*(Math.PI/180));
+	var spacing = parseFloat(document.getElementById('in_dist').value);
+	var resolution = parseFloat(document.getElementById('in_res').value);
+	var linewidth = parseFloat(document.getElementById('in_width').value); 
+	var color = parseInt(document.getElementById('in_colorchannel').value);
+	if(spacing < 1) {
+		alert('Ungültiger Schraffurabstand');
+		return;
+	}
+
+
+	var svgcontainer = document.getElementById('svgcontainer');
+	while (svgcontainer.hasChildNodes()) svgcontainer.removeChild(svgcontainer.lastChild);
+	svg = SVG(svgcontainer);
+
+	var max_scan = canvas.width+canvas.height;
+	var cos_a = Math.cos(angle);
+	var sin_a = Math.sin(angle);
+	for(var tt=-max_scan;tt<max_scan;tt+=spacing) {
+		var sx=-1,sy=-1; // scart of current line
+		var cx=-1,cy=-1; // last in-image x/y
+		for(var ss=-max_scan;ss<max_scan;ss+=resolution) {
+			var x = Math.round(tt*cos_a-ss*sin_a);
+			var y = Math.round(tt*sin_a+ss*cos_a);
+			if(x<0 || y<0 || x>canvas.width || y>canvas.height) continue; 
+			var px = imgData.data[color+4*(x+imgData.width*y)];
+			cx = x; cy = y;
+			if(sx==-1 && px < px_threshold) {
+				var th = true;
+				for(var t_ss=0;t_ss<len_threshold;t_ss++) {
+					var t_x = Math.round(tt*cos_a-(ss+t_ss)*sin_a);
+					var t_y = Math.round(tt*sin_a+(ss+t_ss)*cos_a);
+					var t_px = imgData.data[color+4*(t_x+imgData.width*t_y)];
+					th &= (t_px<px_threshold);
+				}
+				if(th) {
+					sx = cx;
+					sy = cy;
+				}
+			}
+			if(sx!=-1 && px > px_threshold) {
+				var th = true;
+				for(var t_ss=0;t_ss<len_threshold;t_ss++) {
+					var t_x = Math.round(tt*cos_a-(ss+t_ss)*sin_a);
+					var t_y = Math.round(tt*sin_a+(ss+t_ss)*cos_a);
+					var t_px = imgData.data[color+4*(t_x+imgData.width*t_y)];
+					th &= (t_px>px_threshold);
+				}
+				if(th) {
+					svg.line(sx, sy, cx, cy).stroke({ width: linewidth });
+					sx = sy = -1;
+				}
+			}
+		}
+		if(sx != -1) {
+			svg.line(sx, sy, cx, cy).stroke({ width: linewidth });
+		}
+	}
+	svg.viewbox(0,0,canvas.width,canvas.height);
+}
+document.getElementById('download').onclick = function() {
+	if(!svg) document.getElementById('process').click();
+	if(!svg) return;
+	var blob = new Blob([svg.node.outerHTML],{type:'text/svg+xml'});
+	saveAs(blob,'schraffur.svg');
+}
+</script>
+</body></html>
