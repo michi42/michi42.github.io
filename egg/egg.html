@@ -78,7 +78,7 @@ var imgBuf = new Image();
 var canvas = document.getElementById('pixel');
 var canvasCtx = canvas.getContext('2d');
 
-document.getElementById('input').onchange = function() {
+var updateImage = function() {
 	if(!this.files || !this.files[0]) return;
 	var r = new FileReader();
 	r.onload = function(ev) {
@@ -89,10 +89,11 @@ document.getElementById('input').onchange = function() {
 	}
 	r.readAsDataURL(this.files[0]);
 }
-
+document.getElementById('input').onchange = updateImage();
 var svg = null;
 
 document.getElementById('process').onclick = function() {
+	updateImage();
 	var imgData = canvasCtx.getImageData(0,0,canvas.width,canvas.height);
 
 	var px_threshold = parseInt(document.getElementById('in_threshold').value);
