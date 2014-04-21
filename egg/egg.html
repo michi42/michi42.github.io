@@ -78,7 +78,7 @@ var imgBuf = new Image();
 var canvas = document.getElementById('pixel');
 var canvasCtx = canvas.getContext('2d');
 
-var updateImage = function() {
+var updateImage = function(callback) {
 	var inf = document.getElementById('input');
 	if(!inf.files || !inf.files[0]) return;
 	var r = new FileReader();
@@ -87,14 +87,17 @@ var updateImage = function() {
 		canvas.width = imgBuf.width;
 		canvas.height = imgBuf.height;
 		canvasCtx.drawImage(imgBuf,0,0);
+		if(callback) callback();
 	}
 	r.readAsDataURL(inf.files[0]);
 }
-document.getElementById('input').onchange = updateImage();
+document.getElementById('input').onchange = updateImage;
 var svg = null;
 
 document.getElementById('process').onclick = function() {
-	updateImage();
+	updateImage(makeSVG);
+}
+var makeSVG = function() {
 	var imgData = canvasCtx.getImageData(0,0,canvas.width,canvas.height);
 
 	var px_threshold = parseInt(document.getElementById('in_threshold').value);
