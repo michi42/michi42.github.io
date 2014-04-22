@@ -5,7 +5,7 @@ body {
 	font-family: sans-serif;
 }
 #pixel {
-	max-width: 350px;
+	max-width: 330px;
 	max-height: 400px;
 	display: block;
 	float: left;
@@ -16,16 +16,19 @@ body {
 #svgcontainer svg {
 	max-width: 350px;
 	max-height: 400px;
-	min-width: 350px;
 	display: block;
 }
-#config, #pxfieldset, #svgfieldset {
+#left {
+	width: 400px;
+}
+#config, #pxfieldset {
+	width: 350px;
+	margin-bottom: 10px;
+}
+#left, #svgfieldset {
 	float: left;
 }
-#config {
-	width: 300px;
-}
-#config label {
+#config label, #config #svgsize {
 	display: block;
 	vertical-align: middle;
 	clear: both;
@@ -40,12 +43,21 @@ body {
 #download {
 	float: right;
 }
+#svgsize span {
+	float: right;
+	display: block;
+	margin-right: 2px;
+}
+#svgsize input {
+	width: 4em;
+}
 </style>
 <script src="svg.js"></script>
 <script src="FileSaver.js"></script>
 <meta charset="utf-8" />
 </head>
 <body>
+<div id="left">
 <fieldset id="config"><legend>Config</legend>
 <label>Bild: <input type="file" id="input" /></label>
 <label>Farbkanal: <select id="in_colorchannel"><option value="0" selected>R</option><option value="1">G</option><option value="2">B</option></select></label>
@@ -58,16 +70,17 @@ body {
 <label>Liniendicke: <input id="in_width" type="number" value="2" /></label>
 <label>Auflösung: <input id="in_res" type="number" value="2" /></label>
 <label>Minimallänge: <input id="in_minlen" type="number" value="5" /></label>
-
+<br />
+<div id="svgsize">SVG-Vorschaugrösse: <span><input type="number" value="555" id="svgwidth" /> x <input type="number" value="555" size="5" id="svgheight" /></span></div>
 <br />
 <button id="process">Schraffur zeichnen</button>
 <button id="download">SVG speichern</button>
-
 </fieldset>
 <fieldset id="pxfieldset">
 <legend>Original</legend>
 <canvas id="pixel"></canvas>
 </fieldset>
+</div>
 <fieldset id="svgfieldset">
 <legend>SVG</legend>
 <div id="svgcontainer"></div>
@@ -86,7 +99,7 @@ var updateImage = function(callback) {
 		canvas.width = imgBuf.width;
 		canvas.height = imgBuf.height;
 		canvasCtx.drawImage(imgBuf,0,0);
-		if(callback) callback();
+		if(typeof callback == 'function') callback();
 	}
 	r.readAsDataURL(inf.files[0]);
 }
@@ -160,6 +173,26 @@ var makeSVG = function() {
 		}
 	}
 	svg.viewbox(0,0,canvas.width,canvas.height);
+	svg.width(canvas.width);
+	svg.height(canvas.height);
+	var svgWidth = parseInt(document.getElementById('svgwidth').value)+'px';
+	var svgHeight = parseInt(document.getElementById('svgheight').value)+'px';
+	svg.node.style.maxWidth = svgWidth;
+	svg.node.style.maxHeight = svgHeight;
+	svg.node.style.minWidth = svgWidth;
+	svg.node.style.minHeight = svgHeight;
+	
+	/* save settings */
+	localStorage['in_threshold'] = document.getElementById('in_threshold').value;
+	localStorage['in_minlen'] = document.getElementById('in_minlen').value;
+	localStorage['in_angle'] = document.getElementById('in_angle').value;
+	localStorage['in_dist'] = document.getElementById('in_dist').value;
+	localStorage['in_res'] = document.getElementById('in_res').value;
+	localStorage['in_width'] = document.getElementById('in_width').value;
+	localStorage['in_colorchannel'] = document.getElementById('in_colorchannel').value;
+	localStorage['svgwidth'] = document.getElementById('svgwidth').value;
+	localStorage['svgheight'] = document.getElementById('svgheight').value;
+
 }
 document.getElementById('download').onclick = function() {
 	if(!svg) document.getElementById('process').click();
@@ -167,5 +200,18 @@ document.getElementById('download').onclick = function() {
 	var blob = new Blob([svg.node.outerHTML],{type:'text/svg+xml'});
 	saveAs(blob,'schraffur.svg');
 }
+
+
+/* load settings */
+document.getElementById('in_threshold').value = localStorage['in_threshold'] || 150;
+document.getElementById('in_minlen').value = localStorage['in_minlen'] || 5;
+document.getElementById('in_angle').value = localStorage['in_angle'] || 45;
+document.getElementById('in_dist').value = localStorage['in_dist'] || 5;
+document.getElementById('in_res').value = localStorage['in_res'] || 2;
+document.getElementById('in_width').value = localStorage['in_width'] || 2;
+document.getElementById('in_colorchannel').value = localStorage['in_colorchannel'] || 0;
+document.getElementById('svgwidth').value = localStorage['svgwidth'] || 555;
+document.getElementById('svgheight').value = localStorage['svgheight'] || 555;
+
 </script>
 </body></html>
