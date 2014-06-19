@@ -1,0 +1,390 @@
+
+<!doctype html>
+<html><head><title>Tank-War</title>
+<style>
+body {
+	font-family: sans-serif;
+}
+#gamecontainer {
+	width: 640px;
+	height:480px;
+}
+#gamecontainer img {
+	position: absolute;
+	top: 0;
+	left: 0;
+	z-index: 1;
+}
+#gamecontainer #game, #gamecontainer #overlay {
+	position: absolute;
+	top: 65px;
+	left: 15px;
+	z-index: 0;
+}
+#gamecontainer #overlay {
+	z-index: 1;
+}
+</style>
+
+<meta charset="utf-8" />
+</head>
+<body>
+
+<div id="gamecontainer">
+<img src="data/fightgui.png" />
+<canvas id="game" width="610" height="375"></canvas>
+<canvas id="overlay" width="610" height="375"></canvas>
+</div>
+
+<script>
+
+var tankwar = (function() {
+	var ctx = document.getElementById('game').getContext('2d');
+	var overlayCtx = document.getElementById('overlay').getContext('2d');
+
+	var Sprite = function(imageSrc,frameHeight,frameDuration,offsetX,offsetY,onloadCallback) {
+		this.initialized = false;
+		this.frameHeight = frameHeight;
+		this.frameDuration = frameDuration;
+		this.offsetX = offsetX;
+		this.offsetY = offsetY
+
+		this.image = new Image();
+		this.image.sprite = this;
+		this.image.src = imageSrc;
+		this.image.onload = function() {
+			this.sprite.numFrames = Math.round(this.height / frameHeight);
+			this.sprite.frameWidth = this.width;
+			console.log(this.sprite);
+			this.sprite.initialized = true;
+			if(onloadCallback) onloadCallback();
+		}
+		this.draw = function(ctx, ticks, dx, dy, scale) {
+			if(!this.initialized) return;
+			var frame = Math.round(ticks / this.frameDuration);
+			var lastFrame = false;
+			if(frame >= this.numFrames) {
+				lastFrame = true;
+				frame = this.numFrames-1;
+			}
+			ctx.drawImage(this.image,
+				0,frame*this.frameHeight,this.frameWidth,this.frameHeight,
+				dx-this.offsetX*scale,ctx.canvas.clientHeight-(dy+this.offsetY*scale),
+				Math.round(this.frameWidth*scale),Math.round(this.frameHeight*scale)
+			);
+			return lastFrame;
+		}
+		
+		return this;
+	}
+	
+	var Tank = function(color, game) {
+		this.game = game;
+		this.color = color;
+		
+		this.gfxBuffer = document.createElement('canvas');
+		this.gfxBuffer.width = 20;
+		this.gfxBuffer.height = 18;
+		this.gfxCtx = this.gfxBuffer.getContext('2d');
+
+		this.angle = 135;
+		this.power = 500;
+		this.hitpoints = 100;
+
+		this.x = 200;
+		this.y = 200;
+		
+		this.update = function() {
+			this.gfxCtx.clearRect(0,0,20,18);
+			game.sprites.tankL.draw(this.gfxCtx,0,2,-6,1);
+			var pixels = this.gfxCtx.getImageData(0,0,20,18);
+			for(var i=0;i<pixels.data.length;i+=4) {
+				if(pixels.data[i]==255&&pixels.data[i+1]==255&&pixels.data[i+2]==255) {
+					pixels.data[i] = this.color.r;
+					pixels.data[i+1] = this.color.g;
+					pixels.data[i+2] = this.color.b;
+				}
+			}
+			this.gfxCtx.putImageData(pixels,0,0);
+			this.gfxCtx.strokeStyle='rgb('+this.color.r+','+this.color.g+','+this.color.b+')';
+			this.gfxCtx.lineWidth=1.5;
+			this.gfxCtx.moveTo(10,9);
+			this.gfxCtx.lineTo(10+Math.cos(this.angle*Math.PI/180)*8,9-Math.sin(this.angle*Math.PI/180)*8);
+			this.gfxCtx.stroke();
+		}
+		
+		this.fall = function(ticks) {
+			if(this.y > game.terrain.heights[this.x]) {
+				this.y -= ticks/10;
+				if(this.y <= game.terrain.heights[this.x]) {
+					this.y = game.terrain.heights[this.x];
+					return false;
+				}
+				return true;
+			}
+			return false;
+		}
+		
+		this.draw = function(ctx) {
+			ctx.drawImage(this.gfxBuffer,Math.round(this.x-9),Math.round(ctx.canvas.clientHeight-(this.y+16)));
+		}
+
+		this.update();
+	}
+	
+	var Bullet = function(x,y,vx,vy,game) {
+		this.game = game;
+		this.x = x; this.y = y;
+		this.vx = vx; this.vy = vy;
+		this.tick = function(collisonCtx, ticks) {
+			this.x += (ticks/1000)*this.vx; 
+			this.y += (ticks/1000)*this.vy;
+			this.vy -= (ticks/1000)*9.81;
+			var pixels = collisonCtx.getImageData(this.x-1,ctx.canvas.clientHeight-(this.y+1),3,3);
+			for(var i=0; i<pixels.data.length; i+=4) {
+				if(pixels.data[i+3]==0) continue;
+				if(pixels.data[i]!=56 || pixels.data[i+1]!=0 || pixels.data[i+2]==255) {
+					return this.collide();
+				}
+			}
+			return true;
+		}
+		
+		this.draw = function(ctx) {
+			ctx.fillStyle='rgb(200,200,0)';
+			ctx.fillRect(Math.round(this.x-1),Math.round(ctx.canvas.clientHeight-(this.y+1)),3,3);
+		}
+		
+		this.collide = function() { return false; }
+		this.explode = function() { return false; }
+	}
+	var Bomb = function(x,y,vx,vy,game,size) {
+		this.game = game;
+		this.size = size;
+		this.x = x; this.y = y;
+		this.vx = vx; this.vy = vy;
+		
+		this.explode = function() {
+			this.game.explosionManager.add(this.game.sprites.explosion,this.x,this.y,this.size);
+			return true;
+		}
+	}
+	Bomb.prototype = new Bullet();
+
+	return {
+		
+		terrain : {
+			heights: [],
+			
+			pseudoFractalLandgen: function(width, maxHeight, roughness) {
+				var nextPow2=Math.ceil(Math.log(width)/Math.LN2);
+				var nextPow2val=1<<nextPow2;
+				var terrain=[];
+				terrain[0] = 50+(maxHeight-100)*Math.random();
+				terrain[nextPow2val] = 50+(maxHeight-100)*Math.random();
+				for(var i=1;i<=nextPow2;i++) {
+					var step=1<<(nextPow2-i);
+					for(var j=0;j<nextPow2val;j+=step) {
+						if(j in terrain) continue;
+						do {
+							terrain[j] = (terrain[j-step]+terrain[j+step])/2 + ((Math.random()-0.5)*maxHeight)*Math.pow(roughness,i-1);
+						} while(terrain[j]<0||terrain[j]>maxHeight);
+					}
+				}
+				return terrain.splice(0,width);
+			},
+			
+			generate: function(width, maxHeight, options) {
+				this.heights = this.pseudoFractalLandgen(width, maxHeight, options['roughness']);
+			},
+			
+			updateFromImage: function(ctx) {
+				var W=ctx.canvas.clientWidth, H=ctx.canvas.clientHeight;
+				var pixels = ctx.getImageData(0,0,W,H);
+				for(var i=0;i<W;i++) this.heights[i]=0;
+				for(var i=0;i<pixels.data.length;i+=4) {
+					if(pixels.data[i+0]==0 && pixels.data[i+1]==127 && pixels.data[i+2]==0)
+						this.heights[(i/4)%W]++;
+				}				
+			},
+			
+			drawToImage: function(ctx) {
+				var W=ctx.canvas.clientWidth, H=ctx.canvas.clientHeight;
+				var pixels = ctx.getImageData(0,0,W,H);
+				for(var i=0;i<pixels.data.length;i+=4) {
+					if(this.heights[(i/4)%W] >= (H-(i/4)/W)) {
+						pixels.data[i+0]=0;
+						pixels.data[i+1]=127;
+						pixels.data[i+2]=0;
+						pixels.data[i+3]=255;
+					} else {
+						pixels.data[i+0]=56;
+						pixels.data[i+1]=0;
+						pixels.data[i+2]=160;
+						pixels.data[i+3]=255;
+					}
+				}
+				ctx.putImageData(pixels,0,0);				
+			}
+		},
+		
+		explosionManager: {
+			animations: [],
+			finished: true,
+			add: function(sprite,x,y,scale) {
+				this.finished = false;
+				this.animations.push({sprite: sprite, x: x, y: y, scale: scale, ticks: 0});
+			},
+			tick: function(ctx,ticks) {
+				if(this.finished)
+					return true;
+				this.finished = true;
+				for(var i=0; i<this.animations.length; i++) {
+					var anim = this.animations[i];
+					if(anim.sprite.draw(ctx,anim.ticks,anim.x,anim.y,anim.scale)) {
+						this.animations.splice(i,1);
+						i--;
+					} else {
+						this.finished = false;
+					}
+					anim.ticks += ticks;
+				}
+				return this.finished;
+			},
+		},
+		
+		tankManager: {
+			tanks: [],
+			falling: false,
+			
+			add: function(tank) {
+				this.tanks.push(tank);
+			},
+			
+			fall: function(ticks) {
+				this.falling = false;
+				for(var i=0; i<this.tanks.length; i++) {
+					if(this.tanks[i].fall(ticks))
+						this.falling = true;
+				}
+				if(this.falling) return true;
+				return false;
+			},
+			
+			drawAll: function(ctx) {
+				for(var i=0; i<this.tanks.length; i++)
+					this.tanks[i].draw(ctx);
+			}
+		},
+		
+		projectileManager: {
+			projectiles: [],
+			flying: false,
+			
+			add: function(projectile) {
+				this.projectiles.push(projectile);
+			},
+			
+			tick: function(collisonCtx, overlayCtx, ticks) {
+				this.flying = false;
+				overlayCtx.clearRect(0,0,overlayCtx.canvas.width,overlayCtx.canvas.height)
+				for(var i=0; i<this.projectiles.length; i++) {
+					if(this.projectiles[i].tick(collisonCtx, ticks))
+						this.flying = true;
+					this.projectiles[i].draw(overlayCtx);
+				}
+				
+				// finished?
+				if(this.flying) return false;
+				for(var i=0; i<this.projectiles.length; i++) {
+					this.projectiles[i].explode();
+					this.projectiles.splice(i,1); i--;
+				}				
+				overlayCtx.clearRect(0,0,overlayCtx.canvas.width,overlayCtx.canvas.height)				
+				return true;
+			},
+		},
+
+		state: "UNINITIALIZED",
+		
+		sprites: {},
+		initialize: function(onloadCallback) {
+			var spriteLoaded = function() {
+				var done = true;
+				for(var sprite in this.sprites)
+					done &= this.sprites[sprite].initialized;
+				this.state = "PREGAME";
+				if(done && onloadCallback) onloadCallback();
+			}
+			this.sprites.explosion = new Sprite('data/explosion.png', 225, 50, 112, 112, spriteLoaded);
+			this.sprites.atom = new Sprite('data/atom.png', 290, 10, 160, 290, spriteLoaded);
+			
+			this.sprites.tankL = new Sprite('data/tank-l.png',13, 1, 0, 0, spriteLoaded);
+			this.sprites.tankR = new Sprite('data/tank-r.png',13, 1, 0, 0, spriteLoaded);
+		},
+		
+
+		start: function() {
+			this.terrain.generate(ctx.canvas.clientWidth,ctx.canvas.clientHeight-100,{'roughness':0.55});
+			this.terrain.drawToImage(ctx);
+			this.state = "MOVING";
+
+			var test = new Tank({r:255,g:127,b:0},this);
+			this.tankManager.add(test);
+			this.tankManager.drawAll(ctx);
+
+
+			this.state = "SHOOTING";
+/*			this.explosionManager.add(this.sprites.explosion,500,200,1);
+			this.explosionManager.add(this.sprites.explosion,600,300,0.75);
+			this.explosionManager.add(this.sprites.explosion,100,100,0.2);
+			this.explosionManager.add(this.sprites.explosion,0,50,0.5);*/
+			
+			this.projectileManager.add(new Bomb(50,300,30,40,this,0.5));
+
+			// game loop
+			var game = this;
+			var lastTicks = -1;
+			function doFrame(ticks) {
+				if(lastTicks==-1) lastTicks = ticks;
+				var dTicks = ticks-lastTicks;
+				switch(game.state) {
+					case "SHOOTING":
+						if(game.projectileManager.tick(ctx,overlayCtx,dTicks))
+							game.state = "EXPLODING";
+							
+					break;
+					case "EXPLODING":
+						if(game.explosionManager.tick(ctx,dTicks)) {
+							// all animations complete
+							game.terrain.updateFromImage(ctx);
+							game.terrain.drawToImage(ctx);
+							game.tankManager.drawAll(ctx);
+							game.state = "FALLING";
+						}
+					break;
+					
+					case "FALLING":
+						if(game.tankManager.fall(dTicks)) {
+							game.terrain.drawToImage(ctx);
+							game.tankManager.drawAll(ctx);
+						} else {
+							game.state = "MOVING";
+						}
+					break;
+				}
+				lastTicks = ticks;
+				requestAnimationFrame(doFrame);
+			}
+			requestAnimationFrame(doFrame);
+		},
+
+	}
+})();
+
+tankwar.initialize(function() {
+	tankwar.start();
+});
+
+</script>
+</body></html>
