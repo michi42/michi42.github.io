@@ -41,7 +41,12 @@ body {
 var tankwar = (function() {
 	var ctx = document.getElementById('game').getContext('2d');
 	var overlayCtx = document.getElementById('overlay').getContext('2d');
-
+	
+	var Settings = {
+		landColor: [0,127,0],
+		skyColor: [56,0,160]
+	};
+	
 	var Sprite = function(imageSrc,frameHeight,frameDuration,offsetX,offsetY,onloadCallback) {
 		this.initialized = false;
 		this.frameHeight = frameHeight;
@@ -86,6 +91,7 @@ var tankwar = (function() {
 		this.gfxBuffer.width = 20;
 		this.gfxBuffer.height = 18;
 		this.gfxCtx = this.gfxBuffer.getContext('2d');
+		
 
 		this.angle = 135;
 		this.power = 500;
@@ -94,9 +100,27 @@ var tankwar = (function() {
 		this.x = 200;
 		this.y = 200;
 		
+		this.changeAngle = function(angle) {
+			this.angle = Math.round(this.angle + 180 + angle) % 180;
+			this.update();
+		}
+		this.changePower = function(power) {
+			this.power += power;
+			if(power < 0) power = 0;
+			if(power > 1000) power = 1000;
+			this.update();
+		}
+		this.fire = function() {
+			game.fireWeapon(this.weapon, this);
+		}
+		
 		this.update = function() {
-			this.gfxCtx.clearRect(0,0,20,18);
-			game.sprites.tankL.draw(this.gfxCtx,0,2,-6,1);
+			this.gfxCtx.clearRect(0,0,20,20);
+			if(this.angle >= 90)
+				game.sprites.tankL.draw(this.gfxCtx,0,2,-6,1);
+			else
+				game.sprites.tankR.draw(this.gfxCtx,0,2,-6,1);
+
 			var pixels = this.gfxCtx.getImageData(0,0,20,18);
 			for(var i=0;i<pixels.data.length;i+=4) {
 				if(pixels.data[i]==255&&pixels.data[i+1]==255&&pixels.data[i+2]==255) {
@@ -107,17 +131,18 @@ var tankwar = (function() {
 			}
 			this.gfxCtx.putImageData(pixels,0,0);
 			this.gfxCtx.strokeStyle='rgb('+this.color.r+','+this.color.g+','+this.color.b+')';
+			this.gfxCtx.beginPath();
 			this.gfxCtx.lineWidth=1.5;
-			this.gfxCtx.moveTo(10,9);
-			this.gfxCtx.lineTo(10+Math.cos(this.angle*Math.PI/180)*8,9-Math.sin(this.angle*Math.PI/180)*8);
+			this.gfxCtx.moveTo(10,8);
+			this.gfxCtx.lineTo(10+Math.cos(this.angle*Math.PI/180)*8,8-Math.sin(this.angle*Math.PI/180)*8);
 			this.gfxCtx.stroke();
 		}
 		
 		this.fall = function(ticks) {
 			if(this.y > game.terrain.heights[this.x]) {
-				this.y -= ticks/10;
-				if(this.y <= game.terrain.heights[this.x]) {
-					this.y = game.terrain.heights[this.x];
+				this.y -= ticks/5;
+				if(this.y <= game.terrain.heights[this.x]+1) {
+					this.y = game.terrain.heights[this.x]+2;
 					return false;
 				}
 				return true;
@@ -137,13 +162,13 @@ var tankwar = (function() {
 		this.x = x; this.y = y;
 		this.vx = vx; this.vy = vy;
 		this.tick = function(collisonCtx, ticks) {
-			this.x += (ticks/1000)*this.vx; 
-			this.y += (ticks/1000)*this.vy;
-			this.vy -= (ticks/1000)*9.81;
+			this.x += (ticks/300)*this.vx; 
+			this.y += (ticks/300)*this.vy;
+			this.vy -= (ticks/300)*9.81;
 			var pixels = collisonCtx.getImageData(this.x-1,ctx.canvas.clientHeight-(this.y+1),3,3);
 			for(var i=0; i<pixels.data.length; i+=4) {
 				if(pixels.data[i+3]==0) continue;
-				if(pixels.data[i]!=56 || pixels.data[i+1]!=0 || pixels.data[i+2]==255) {
+				if(pixels.data[i]!=Settings.skyColor[0] || pixels.data[i+1]!=Settings.skyColor[1] || pixels.data[i+2]!=Settings.skyColor[2]) {
 					return this.collide();
 				}
 			}
@@ -155,8 +180,9 @@ var tankwar = (function() {
 			ctx.fillRect(Math.round(this.x-1),Math.round(ctx.canvas.clientHeight-(this.y+1)),3,3);
 		}
 		
-		this.collide = function() { return false; }
-		this.explode = function() { return false; }
+		this.collide = function() { return false; } // instantanously at collision (return true to keep the bullet alive)
+		this.explode = function() { return false; } // after all motion was handled (return true if exploded)
+		this.action = function() { return false; }  // on player action (space bar) (return true if handled)
 	}
 	var Bomb = function(x,y,vx,vy,game,size) {
 		this.game = game;
@@ -171,10 +197,64 @@ var tankwar = (function() {
 	}
 	Bomb.prototype = new Bullet();
 
-	return {
+	var Controller = function() {
+		this.inputState = {up: false, down: false, left: false, right: false, fast: false, trigger: false};
 		
+		this.controlTank = function(tank, game, ticks) {
+			if(this.inputState.left) {
+				tank.changeAngle(Math.round((ticks/1000)*(this.inputState.fast?100:20)));
+				return true;
+			}
+			if(this.inputState.right) {
+				tank.changeAngle(Math.round(-(ticks/1000)*(this.inputState.fast?100:20)));
+				return true;
+			}
+			if(this.inputState.up) {
+				tank.changePower(Math.round((ticks/1000)*(this.inputState.fast?100:20))*5);
+				return true;
+			}
+			if(this.inputState.down) {
+				tank.changePower(Math.round(-(ticks/1000)*(this.inputState.fast?100:20))*5);
+				return true;
+			}
+			if(this.inputState.trigger) {
+				tank.fire();
+			}
+			
+		}
+	}
+	
+	var KeyboardController = function() {
+		var controller = this;
+		document.documentElement.addEventListener('keydown',function(ev) {
+			if(ev.repeat) return;
+			if(ev.keyCode == 37) controller.inputState.left = true;
+			if(ev.keyCode == 38) controller.inputState.up = true;
+			if(ev.keyCode == 39) controller.inputState.right = true;
+			if(ev.keyCode == 40) controller.inputState.down = true;
+
+			if(ev.keyCode == 32) controller.inputState.trigger = true;
+
+			if(ev.keyCode == 16) controller.inputState.fast = true;			
+		}, false);
+		document.documentElement.addEventListener('keyup',function(ev) {
+			if(ev.keyCode == 37) controller.inputState.left = false;
+			if(ev.keyCode == 38) controller.inputState.up = false;
+			if(ev.keyCode == 39) controller.inputState.right = false;
+			if(ev.keyCode == 40) controller.inputState.down = false;
+
+			if(ev.keyCode == 32) controller.inputState.trigger = false;
+
+			if(ev.keyCode == 16) controller.inputState.fast = false;			
+		}, false);
+	}
+	KeyboardController.prototype = new Controller();
+	
+	return {
+
 		terrain : {
 			heights: [],
+			isIndestructible: false,
 			
 			pseudoFractalLandgen: function(width, maxHeight, roughness) {
 				var nextPow2=Math.ceil(Math.log(width)/Math.LN2);
@@ -199,11 +279,12 @@ var tankwar = (function() {
 			},
 			
 			updateFromImage: function(ctx) {
+				if(this.isIndestructible) return;
 				var W=ctx.canvas.clientWidth, H=ctx.canvas.clientHeight;
 				var pixels = ctx.getImageData(0,0,W,H);
 				for(var i=0;i<W;i++) this.heights[i]=0;
 				for(var i=0;i<pixels.data.length;i+=4) {
-					if(pixels.data[i+0]==0 && pixels.data[i+1]==127 && pixels.data[i+2]==0)
+					if(pixels.data[i+0]==Settings.landColor[0] && pixels.data[i+1]==Settings.landColor[1] && pixels.data[i+2]==Settings.landColor[2])
 						this.heights[(i/4)%W]++;
 				}				
 			},
@@ -213,14 +294,14 @@ var tankwar = (function() {
 				var pixels = ctx.getImageData(0,0,W,H);
 				for(var i=0;i<pixels.data.length;i+=4) {
 					if(this.heights[(i/4)%W] >= (H-(i/4)/W)) {
-						pixels.data[i+0]=0;
-						pixels.data[i+1]=127;
-						pixels.data[i+2]=0;
+						pixels.data[i+0]=Settings.landColor[0];
+						pixels.data[i+1]=Settings.landColor[1];
+						pixels.data[i+2]=Settings.landColor[2];
 						pixels.data[i+3]=255;
 					} else {
-						pixels.data[i+0]=56;
-						pixels.data[i+1]=0;
-						pixels.data[i+2]=160;
+						pixels.data[i+0]=Settings.skyColor[0];
+						pixels.data[i+1]=Settings.skyColor[1];
+						pixels.data[i+2]=Settings.skyColor[2];
 						pixels.data[i+3]=255;
 					}
 				}
@@ -309,14 +390,16 @@ var tankwar = (function() {
 		
 		sprites: {},
 		initialize: function(onloadCallback) {
+			var game = this;
+			
 			var spriteLoaded = function() {
 				var done = true;
-				for(var sprite in this.sprites)
-					done &= this.sprites[sprite].initialized;
-				this.state = "PREGAME";
+				for(var sprite in game.sprites)
+					done &= game.sprites[sprite].initialized;
+				game.state = "PREGAME";
 				if(done && onloadCallback) onloadCallback();
 			}
-			this.sprites.explosion = new Sprite('data/explosion.png', 225, 50, 112, 112, spriteLoaded);
+			this.sprites.explosion = new Sprite('data/explosion.png', 225, 10, 112, 112, spriteLoaded);
 			this.sprites.atom = new Sprite('data/atom.png', 290, 10, 160, 290, spriteLoaded);
 			
 			this.sprites.tankL = new Sprite('data/tank-l.png',13, 1, 0, 0, spriteLoaded);
@@ -329,26 +412,35 @@ var tankwar = (function() {
 			this.terrain.drawToImage(ctx);
 			this.state = "MOVING";
 
-			var test = new Tank({r:255,g:127,b:0},this);
-			this.tankManager.add(test);
+			var testTank = new Tank({r:255,g:127,b:0},this);
+			testTank.y = this.terrain.heights[testTank.x];
+			this.tankManager.add(testTank);
 			this.tankManager.drawAll(ctx);
 
 
-			this.state = "SHOOTING";
+//			this.state = "SHOOTING";
 /*			this.explosionManager.add(this.sprites.explosion,500,200,1);
 			this.explosionManager.add(this.sprites.explosion,600,300,0.75);
 			this.explosionManager.add(this.sprites.explosion,100,100,0.2);
 			this.explosionManager.add(this.sprites.explosion,0,50,0.5);*/
 			
-			this.projectileManager.add(new Bomb(50,300,30,40,this,0.5));
+//			this.projectileManager.add(new Bomb(50,300,30,40,this,0.5));
 
 			// game loop
+			this.controller = new KeyboardController();
 			var game = this;
 			var lastTicks = -1;
 			function doFrame(ticks) {
 				if(lastTicks==-1) lastTicks = ticks;
 				var dTicks = ticks-lastTicks;
 				switch(game.state) {
+					case "MOVING":
+						if(game.controller.controlTank(testTank, game, dTicks)) {
+							game.terrain.drawToImage(ctx);
+							game.tankManager.drawAll(ctx);
+						}
+					break;
+					
 					case "SHOOTING":
 						if(game.projectileManager.tick(ctx,overlayCtx,dTicks))
 							game.state = "EXPLODING";
@@ -365,12 +457,11 @@ var tankwar = (function() {
 					break;
 					
 					case "FALLING":
-						if(game.tankManager.fall(dTicks)) {
-							game.terrain.drawToImage(ctx);
-							game.tankManager.drawAll(ctx);
-						} else {
+						if(!game.tankManager.fall(dTicks)) {
 							game.state = "MOVING";
 						}
+						game.terrain.drawToImage(ctx);
+						game.tankManager.drawAll(ctx);
 					break;
 				}
 				lastTicks = ticks;
@@ -378,6 +469,16 @@ var tankwar = (function() {
 			}
 			requestAnimationFrame(doFrame);
 		},
+		
+		fireWeapon: function(weapon, tank) {
+			this.state = "SHOOTING";
+			var muzzleX = tank.x + Math.cos(tank.angle*Math.PI/180)*11;
+			var muzzleY = tank.y + 8 + Math.sin(tank.angle*Math.PI/180)*11;
+			var vx =  Math.cos(tank.angle*Math.PI/180)*tank.power/10;
+			var vy =  Math.sin(tank.angle*Math.PI/180)*tank.power/10;
+			
+			this.projectileManager.add(new Bomb(muzzleX,muzzleY,vx,vy,this,0.5));
+		}
 
 	}
 })();
