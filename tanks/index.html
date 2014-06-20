@@ -5,47 +5,72 @@
 body {
 	font-family: sans-serif;
 }
-#gamecontainer {
-	width: 640px;
-	height:480px;
-}
-#gamecontainer img {
-	position: absolute;
-	top: 0;
-	left: 0;
-	z-index: 1;
-}
-#gamecontainer #game, #gamecontainer #overlay {
-	position: absolute;
-	top: 65px;
-	left: 15px;
-	z-index: 0;
-}
-#gamecontainer #overlay {
-	z-index: 1;
-}
 </style>
 
 <meta charset="utf-8" />
 </head>
 <body>
 
-<div id="gamecontainer">
-<img src="data/fightgui.png" />
-<canvas id="game" width="610" height="375"></canvas>
-<canvas id="overlay" width="610" height="375"></canvas>
+<div id="tankwar">
 </div>
 
 <script>
 
 var tankwar = (function() {
-	var ctx = document.getElementById('game').getContext('2d');
-	var overlayCtx = document.getElementById('overlay').getContext('2d');
 	
 	var Settings = {
 		landColor: [0,127,0],
 		skyColor: [56,0,160]
 	};
+	
+	var FightGUI = function(container) {
+		container.style.width = '640px';
+		container.style.height = '480px';
+	
+		var gui = document.createElement('img');
+		gui.src = 'data/fightgui.png';
+		gui.style.position = 'absolute';
+		gui.style.top = 0; gui.style.left = 0;
+		gui.style.zIndex = 10;
+		container.appendChild(gui);
+		
+		var gameCanvas = document.createElement('canvas');
+		var overlayCanvas = document.createElement('canvas');
+		gameCanvas.width = overlayCanvas.width = 610;
+		gameCanvas.height = overlayCanvas.height = 375;
+		gameCanvas.zIndex = 1; overlayCanvas.zIndex = 2;
+		gameCanvas.style.position = overlayCanvas.style.position = 'absolute';
+		gameCanvas.style.top = overlayCanvas.style.top = '65px';
+		gameCanvas.style.left = overlayCanvas.style.left = '15px';		
+		
+		container.appendChild(gameCanvas); container.appendChild(overlayCanvas);
+		
+		container.style.position = 'relative';
+		
+		// expose canvas contexts for drawing
+		this.gameCtx = gameCanvas.getContext('2d');
+		this.overlayCtx = overlayCanvas.getContext('2d');
+		
+		var powerDisplay = document.createElement('div');
+		powerDisplay.style.position = 'absolute';
+		powerDisplay.style.top = '10px'; powerDisplay.style.left = '72px';
+		powerDisplay.style.width = '60px'; powerDisplay.style.height = '18px';
+		powerDisplay.style.textAlign = 'center'; powerDisplay.style.zIndex = 20;
+		container.appendChild(powerDisplay);
+
+		var angleDisplay = document.createElement('div');
+		angleDisplay.style.position = 'absolute';
+		angleDisplay.style.top = '32px'; angleDisplay.style.left = '72px';
+		angleDisplay.style.width = '60px'; angleDisplay.style.height = '18px';
+		angleDisplay.style.textAlign = 'center'; angleDisplay.style.zIndex = 20;
+		container.appendChild(angleDisplay);
+
+		this.display = function(tank) {
+			powerDisplay.innerHTML = tank.power;
+			angleDisplay.innerHTML = tank.angle;
+		}
+		
+	}
 	
 	var Sprite = function(imageSrc,frameHeight,frameDuration,offsetX,offsetY,onloadCallback) {
 		this.initialized = false;
@@ -100,14 +125,19 @@ var tankwar = (function() {
 		this.x = 200;
 		this.y = 200;
 		
+		var tempAngle = this.angle;
+		var tempPower = this.power;
+		
 		this.changeAngle = function(angle) {
-			this.angle = Math.round(this.angle + 180 + angle) % 180;
+			tempAngle = (tempAngle + 180 + angle) % 180;
+			this.angle = Math.round(tempAngle);
 			this.update();
 		}
 		this.changePower = function(power) {
-			this.power += power;
-			if(power < 0) power = 0;
-			if(power > 1000) power = 1000;
+			tempPower += power;
+			if(tempPower < 0) tempPower = 0;
+			if(tempPower > 1000) tempPower = 1000;
+			this.power = 5*Math.round(tempPower/5);
 			this.update();
 		}
 		this.fire = function() {
@@ -165,7 +195,7 @@ var tankwar = (function() {
 			this.x += (ticks/300)*this.vx; 
 			this.y += (ticks/300)*this.vy;
 			this.vy -= (ticks/300)*9.81;
-			var pixels = collisonCtx.getImageData(this.x-1,ctx.canvas.clientHeight-(this.y+1),3,3);
+			var pixels = collisonCtx.getImageData(this.x-1,collisonCtx.canvas.clientHeight-(this.y+1),3,3);
 			for(var i=0; i<pixels.data.length; i+=4) {
 				if(pixels.data[i+3]==0) continue;
 				if(pixels.data[i]!=Settings.skyColor[0] || pixels.data[i+1]!=Settings.skyColor[1] || pixels.data[i+2]!=Settings.skyColor[2]) {
@@ -202,19 +232,19 @@ var tankwar = (function() {
 		
 		this.controlTank = function(tank, game, ticks) {
 			if(this.inputState.left) {
-				tank.changeAngle(Math.round((ticks/1000)*(this.inputState.fast?100:20)));
+				tank.changeAngle((ticks/1000)*(this.inputState.fast?100:20));
 				return true;
 			}
 			if(this.inputState.right) {
-				tank.changeAngle(Math.round(-(ticks/1000)*(this.inputState.fast?100:20)));
+				tank.changeAngle(-(ticks/1000)*(this.inputState.fast?100:20));
 				return true;
 			}
 			if(this.inputState.up) {
-				tank.changePower(Math.round((ticks/1000)*(this.inputState.fast?100:20))*5);
+				tank.changePower((ticks/1000)*(this.inputState.fast?100:20)*5);
 				return true;
 			}
 			if(this.inputState.down) {
-				tank.changePower(Math.round(-(ticks/1000)*(this.inputState.fast?100:20))*5);
+				tank.changePower(-(ticks/1000)*(this.inputState.fast?100:20)*5);
 				return true;
 			}
 			if(this.inputState.trigger) {
@@ -389,7 +419,7 @@ var tankwar = (function() {
 		state: "UNINITIALIZED",
 		
 		sprites: {},
-		initialize: function(onloadCallback) {
+		initialize: function(container,onloadCallback) {
 			var game = this;
 			
 			var spriteLoaded = function() {
@@ -404,10 +434,14 @@ var tankwar = (function() {
 			
 			this.sprites.tankL = new Sprite('data/tank-l.png',13, 1, 0, 0, spriteLoaded);
 			this.sprites.tankR = new Sprite('data/tank-r.png',13, 1, 0, 0, spriteLoaded);
+			
+			this.gui = new FightGUI(container);
 		},
 		
 
 		start: function() {
+			var ctx = this.gui.gameCtx; var overlayCtx = this.gui.overlayCtx;
+		
 			this.terrain.generate(ctx.canvas.clientWidth,ctx.canvas.clientHeight-100,{'roughness':0.55});
 			this.terrain.drawToImage(ctx);
 			this.state = "MOVING";
@@ -416,15 +450,7 @@ var tankwar = (function() {
 			testTank.y = this.terrain.heights[testTank.x];
 			this.tankManager.add(testTank);
 			this.tankManager.drawAll(ctx);
-
-
-//			this.state = "SHOOTING";
-/*			this.explosionManager.add(this.sprites.explosion,500,200,1);
-			this.explosionManager.add(this.sprites.explosion,600,300,0.75);
-			this.explosionManager.add(this.sprites.explosion,100,100,0.2);
-			this.explosionManager.add(this.sprites.explosion,0,50,0.5);*/
-			
-//			this.projectileManager.add(new Bomb(50,300,30,40,this,0.5));
+			this.gui.display(testTank);
 
 			// game loop
 			this.controller = new KeyboardController();
@@ -438,6 +464,7 @@ var tankwar = (function() {
 						if(game.controller.controlTank(testTank, game, dTicks)) {
 							game.terrain.drawToImage(ctx);
 							game.tankManager.drawAll(ctx);
+							game.gui.display(testTank);
 						}
 					break;
 					
@@ -483,7 +510,7 @@ var tankwar = (function() {
 	}
 })();
 
-tankwar.initialize(function() {
+tankwar.initialize(document.getElementById('tankwar'), function() {
 	tankwar.start();
 });
 
