@@ -31,7 +31,7 @@ var tankwar = (function() {
 		gui.src = 'data/fightgui.png';
 		gui.style.position = 'absolute';
 		gui.style.top = 0; gui.style.left = 0;
-		gui.style.zIndex = 10;
+		gui.style.zIndex = 0;
 		container.appendChild(gui);
 		
 		var gameCanvas = document.createElement('canvas');
@@ -53,7 +53,7 @@ var tankwar = (function() {
 		
 		var powerDisplay = document.createElement('div');
 		powerDisplay.style.position = 'absolute';
-		powerDisplay.style.top = '10px'; powerDisplay.style.left = '72px';
+		powerDisplay.style.top = '9px'; powerDisplay.style.left = '72px';
 		powerDisplay.style.width = '60px'; powerDisplay.style.height = '18px';
 		powerDisplay.style.textAlign = 'center'; powerDisplay.style.zIndex = 20;
 		container.appendChild(powerDisplay);
@@ -65,12 +65,71 @@ var tankwar = (function() {
 		angleDisplay.style.textAlign = 'center'; angleDisplay.style.zIndex = 20;
 		container.appendChild(angleDisplay);
 
+		var nameDisplay = document.createElement('div');
+		nameDisplay.style.position = 'absolute';
+		nameDisplay.style.top = '8px'; nameDisplay.style.left = '480px';
+		nameDisplay.style.width = '153px'; nameDisplay.style.height = '18px';
+		nameDisplay.style.textAlign = 'center'; nameDisplay.style.zIndex = 20;
+		container.appendChild(nameDisplay);
+
+		
+		var hitpointDisplay = document.createElement('div');
+		hitpointDisplay.style.position = 'absolute';
+		hitpointDisplay.style.top = '31px'; hitpointDisplay.style.left = '534px';
+		hitpointDisplay.style.width = '100px'; hitpointDisplay.style.height = '18px';
+		hitpointDisplay.style.textAlign = 'center'; hitpointDisplay.style.zIndex = 20;
+		hitpointDisplay.style.background = 'linear-gradient(to right, red, lime 100px)';
+		container.appendChild(hitpointDisplay);
+
+		
+
 		this.display = function(tank) {
 			powerDisplay.innerHTML = tank.power;
 			angleDisplay.innerHTML = tank.angle;
+			nameDisplay.innerHTML = tank.name;
+			hitpointDisplay.style.width = Math.round(tank.hitpoints)+'px';
 		}
 		
 	}
+	
+	var WallManager = function(game) {
+		// return false to kill the bullet (explode)
+		// return true to keep it
+		this.collide = function(projectile, collision) { return false; }
+	}
+	
+	var OpenWallManager = function(game) {
+		this.collide = function(projectile, collision) {
+			// top collision
+			if(collision.top)
+				return true;
+
+			if(collision.left || collision.right)
+				projectile.kill(); // kill (no explosion)
+
+			return false;
+		}
+	}
+	OpenWallManager.prototype = new WallManager();	
+	
+	var BouncyWallManager = function(game) {
+		this.collide = function(projectile, collision) {
+			if(collision.top)
+				projectile.vy = -Math.abs(projectile.vy)*0.8;
+			if(collision.left)
+				projectile.vx = Math.abs(projectile.vx)*0.8;
+			if(collision.right)
+				projectile.vx = -Math.abs(projectile.vx)*0.8;
+			if(collision.bottom)
+				projectile.vy = Math.abs(projectile.vy)*0.8;
+				
+			if(projectile.vx*projectile.vx+projectile.vy*projectile.vy < 100)
+				return false;
+
+			return true;
+		}		
+	}
+	BouncyWallManager.prototype = new WallManager();	
 	
 	var Sprite = function(imageSrc,frameHeight,frameDuration,offsetX,offsetY,onloadCallback) {
 		this.initialized = false;
@@ -85,7 +144,6 @@ var tankwar = (function() {
 		this.image.onload = function() {
 			this.sprite.numFrames = Math.round(this.height / frameHeight);
 			this.sprite.frameWidth = this.width;
-			console.log(this.sprite);
 			this.sprite.initialized = true;
 			if(onloadCallback) onloadCallback();
 		}
@@ -108,7 +166,8 @@ var tankwar = (function() {
 		return this;
 	}
 	
-	var Tank = function(color, game) {
+	var Tank = function(name, color, game) {
+		this.name = name;
 		this.game = game;
 		this.color = color;
 		
@@ -143,6 +202,14 @@ var tankwar = (function() {
 		this.fire = function() {
 			game.fireWeapon(this.weapon, this);
 		}
+		this.damage = function(dmg) {
+			if(this.hitpoints <= 0) return;
+			this.hitpoints -= dmg.thermal;
+			this.hitpoints -= dmg.physical;
+			this.update();
+			if(this.hitpoints <= 0)
+				this.hitpoints = 0;
+		}
 		
 		this.update = function() {
 			this.gfxCtx.clearRect(0,0,20,20);
@@ -151,16 +218,19 @@ var tankwar = (function() {
 			else
 				game.sprites.tankR.draw(this.gfxCtx,0,2,-6,1);
 
+			var curColor = {r: Math.round(this.color.r*(this.hitpoints/100)),
+			                g: Math.round(this.color.g*(this.hitpoints/100)),
+			                b: Math.round(this.color.b*(this.hitpoints/100))};
 			var pixels = this.gfxCtx.getImageData(0,0,20,18);
 			for(var i=0;i<pixels.data.length;i+=4) {
 				if(pixels.data[i]==255&&pixels.data[i+1]==255&&pixels.data[i+2]==255) {
-					pixels.data[i] = this.color.r;
-					pixels.data[i+1] = this.color.g;
-					pixels.data[i+2] = this.color.b;
+					pixels.data[i] = curColor.r;
+					pixels.data[i+1] = curColor.g;
+					pixels.data[i+2] = curColor.b;
 				}
 			}
 			this.gfxCtx.putImageData(pixels,0,0);
-			this.gfxCtx.strokeStyle='rgb('+this.color.r+','+this.color.g+','+this.color.b+')';
+			this.gfxCtx.strokeStyle='rgb('+curColor.r+','+curColor.g+','+curColor.b+')';
 			this.gfxCtx.beginPath();
 			this.gfxCtx.lineWidth=1.5;
 			this.gfxCtx.moveTo(10,8);
@@ -181,6 +251,7 @@ var tankwar = (function() {
 		}
 		
 		this.draw = function(ctx) {
+			if(this.hitpoints < 0) return;
 			ctx.drawImage(this.gfxBuffer,Math.round(this.x-9),Math.round(ctx.canvas.clientHeight-(this.y+16)));
 		}
 
@@ -191,17 +262,38 @@ var tankwar = (function() {
 		this.game = game;
 		this.x = x; this.y = y;
 		this.vx = vx; this.vy = vy;
-		this.tick = function(collisonCtx, ticks) {
+	
+		this.kill = function() {
+			this.x = NaN; this.y = NaN;
+			this.explode = function() {};
+		}
+
+		this.tick = function(collisionCtx, ticks) {
+			if(isNaN(this.x) || isNaN(this.y))
+				return false;
+
 			this.x += (ticks/300)*this.vx; 
 			this.y += (ticks/300)*this.vy;
 			this.vy -= (ticks/300)*9.81;
-			var pixels = collisonCtx.getImageData(this.x-1,collisonCtx.canvas.clientHeight-(this.y+1),3,3);
+			
+			// check for pixel / terrain / tank collision
+			var pixels = collisionCtx.getImageData(this.x-1,collisionCtx.canvas.height-(this.y+1),3,3);
 			for(var i=0; i<pixels.data.length; i+=4) {
 				if(pixels.data[i+3]==0) continue;
 				if(pixels.data[i]!=Settings.skyColor[0] || pixels.data[i+1]!=Settings.skyColor[1] || pixels.data[i+2]!=Settings.skyColor[2]) {
-					return this.collide();
+					return this.terrainCollide();
 				}
 			}
+
+			// check for wall collision
+			var wallCollision = {top: false, bottom: false, left: false, right: false};
+			if(this.x <= 0) wallCollision.left = true;
+			if(this.y <= 0) wallCollision.bottom = true;
+			if(this.x >= collisionCtx.canvas.width) wallCollision.right = true;
+			if(this.y >= collisionCtx.canvas.height) wallCollision.top = true;
+			if(wallCollision.left||wallCollision.right||wallCollision.top||wallCollision.bottom)
+				return this.wallCollide(wallCollision);
+
 			return true;
 		}
 		
@@ -210,18 +302,31 @@ var tankwar = (function() {
 			ctx.fillRect(Math.round(this.x-1),Math.round(ctx.canvas.clientHeight-(this.y+1)),3,3);
 		}
 		
-		this.collide = function() { return false; } // instantanously at collision (return true to keep the bullet alive)
+		this.terrainCollide = function() { return false; } // instantanously at collision (return true to keep the bullet alive)
+		this.wallCollide = function(collision) { return this.game.wallManager.collide(this,collision); }
 		this.explode = function() { return false; } // after all motion was handled (return true if exploded)
 		this.action = function() { return false; }  // on player action (space bar) (return true if handled)
 	}
-	var Bomb = function(x,y,vx,vy,game,size) {
+	var Bomb = function(x,y,vx,vy,game,size,damage) {
 		this.game = game;
 		this.size = size;
+		this.damage = damage;
 		this.x = x; this.y = y;
 		this.vx = vx; this.vy = vy;
 		
 		this.explode = function() {
 			this.game.explosionManager.add(this.game.sprites.explosion,this.x,this.y,this.size);
+
+			var bomb = this;
+			this.game.tankManager.damage(function(tx, ty) {
+				var dx = bomb.x-tx, dy = bomb.y-ty;
+				var dist = Math.sqrt(dx*dx+dy*dy);
+				var realsize = 130*bomb.size;
+				var dmg = bomb.damage*(realsize-dist)/realsize;
+				if(dmg<0) dmg = 0;
+				return {thermal: dmg*0.2, physical: dmg*0.8}
+			});
+
 			return true;
 		}
 	}
@@ -297,15 +402,37 @@ var tankwar = (function() {
 					for(var j=0;j<nextPow2val;j+=step) {
 						if(j in terrain) continue;
 						do {
-							terrain[j] = (terrain[j-step]+terrain[j+step])/2 + ((Math.random()-0.5)*maxHeight)*Math.pow(roughness,i-1);
+							terrain[j] = (terrain[j-step]+terrain[j+step])/2 + ((Math.random()-0.5)*maxHeight)*Math.pow(roughness,0.25*Math.pow(i-1,1.5));
 						} while(terrain[j]<0||terrain[j]>maxHeight);
 					}
 				}
 				return terrain.splice(0,width);
 			},
 			
+			solidHillLandgen: function(width, maxHeight,roughness) {
+				var terrain = [];
+				var a = 0;
+				var s = Math.random()*75;
+				var v = 0;
+				for(var i=0;i<width;i++) {
+					v = Math.min(Math.max(v+a*roughness*0.5,-3),3);
+					s = Math.max(s+v*roughness,0);
+					if (((i%40)==0)||(s<5)||(s>100))
+						a = ((Math.random()*3)-1)-a*Math.random()-(((50+s)-(maxHeight*0.5))/maxHeight)*4;
+					if(s<5)
+						v = v+a;
+					if(s>100)
+						a = -Math.abs(a);
+						
+					terrain[i] = Math.min(Math.max(Math.round(25+Math.pow(s,0.8)*4),0),maxHeight);
+				}
+				
+				return terrain;
+			},
+			
 			generate: function(width, maxHeight, options) {
 				this.heights = this.pseudoFractalLandgen(width, maxHeight, options['roughness']);
+//				this.heights = this.solidHillLandgen(width, maxHeight, options['roughness']);
 			},
 			
 			updateFromImage: function(ctx) {
@@ -366,25 +493,68 @@ var tankwar = (function() {
 		
 		tankManager: {
 			tanks: [],
-			falling: false,
+			currentTank: -1,
 			
 			add: function(tank) {
 				this.tanks.push(tank);
 			},
 			
 			fall: function(ticks) {
-				this.falling = false;
+				falling = false;
 				for(var i=0; i<this.tanks.length; i++) {
 					if(this.tanks[i].fall(ticks))
-						this.falling = true;
+						falling = true;
 				}
-				if(this.falling) return true;
+				if(falling) return true;
 				return false;
 			},
-			
+			damage: function(callback) {
+				for(var i=0; i<this.tanks.length; i++) {
+					var tank = this.tanks[i];
+					tank.damage(callback(tank.x,tank.y));
+				}
+			},
 			drawAll: function(ctx) {
 				for(var i=0; i<this.tanks.length; i++)
 					this.tanks[i].draw(ctx);
+			},
+			
+			handleDestructions: function() {
+				for(var i=0; i<this.tanks.length; i++) {
+					var tank = this.tanks[i];
+					if(tank.hitpoints == 0) {
+						tank.game.state = "EXPLODING";
+						tank.game.explosionManager.add(tank.game.sprites.explosion,tank.x,tank.y,0.15);
+						tank.hitpoints = -1;
+					}
+				}	
+			},
+			
+			nextTank: function() {
+				var oldTank = this.currentTank;
+				do {
+					this.currentTank = (this.currentTank+1) % this.tanks.length;
+
+					if(this.currentTank == oldTank && this.tanks[oldTank].hitpoints <= 0)
+						return null; // no tank with hitpoints left.
+				} while(this.tanks[this.currentTank].hitpoints <= 0);
+				return this.tanks[this.currentTank];
+			},
+			
+			spawnTanks: function(terrain) {
+				var dist = (terrain.heights.length-150) / (this.tanks.length-1);
+				var positions = [];
+				for(var x=0; x<=(terrain.heights.length-150); x+=dist)
+					positions.push(Math.round(x)+75);
+				console.log(positions)
+				for(var i=0; i<this.tanks.length; i++) {
+					var x = positions.splice(Math.floor(Math.random()*positions.length),1)[0];
+					console.log(x);
+					var tank = this.tanks[i];
+					tank.hitpoints = 100;
+					tank.x = x;
+					tank.y = terrain.heights[x]+2;
+				}
 			}
 		},
 		
@@ -438,33 +608,43 @@ var tankwar = (function() {
 			this.gui = new FightGUI(container);
 		},
 		
+		controller: new KeyboardController(),
+		
+		wallManager: new BouncyWallManager(),
 
 		start: function() {
 			var ctx = this.gui.gameCtx; var overlayCtx = this.gui.overlayCtx;
 		
 			this.terrain.generate(ctx.canvas.clientWidth,ctx.canvas.clientHeight-100,{'roughness':0.55});
 			this.terrain.drawToImage(ctx);
-			this.state = "MOVING";
+			this.state = "NEXTTURN";
 
-			var testTank = new Tank({r:255,g:127,b:0},this);
-			testTank.y = this.terrain.heights[testTank.x];
-			this.tankManager.add(testTank);
+			this.tankManager.add(new Tank('Player 1',{r:255,g:127,b:0},this));
+			this.tankManager.add(new Tank('Player 2',{r:0,g:255,b:0},this));
+			this.tankManager.spawnTanks(this.terrain);
+			
 			this.tankManager.drawAll(ctx);
-			this.gui.display(testTank);
+	
 
 			// game loop
-			this.controller = new KeyboardController();
 			var game = this;
+			var currentTank = null;
 			var lastTicks = -1;
 			function doFrame(ticks) {
 				if(lastTicks==-1) lastTicks = ticks;
 				var dTicks = ticks-lastTicks;
+				if(dTicks > 500) {
+					// background tab? pause ...
+					lastTicks = ticks;
+					requestAnimationFrame(doFrame);
+					return;
+				}
 				switch(game.state) {
 					case "MOVING":
-						if(game.controller.controlTank(testTank, game, dTicks)) {
+						if(game.controller.controlTank(currentTank, game, dTicks)) {
 							game.terrain.drawToImage(ctx);
 							game.tankManager.drawAll(ctx);
-							game.gui.display(testTank);
+							game.gui.display(currentTank);
 						}
 					break;
 					
@@ -485,10 +665,20 @@ var tankwar = (function() {
 					
 					case "FALLING":
 						if(!game.tankManager.fall(dTicks)) {
-							game.state = "MOVING";
+							game.state = "NEXTTURN";
+							game.tankManager.handleDestructions();
 						}
 						game.terrain.drawToImage(ctx);
 						game.tankManager.drawAll(ctx);
+					break;
+					
+					case "NEXTTURN":
+						game.terrain.drawToImage(ctx);
+						game.tankManager.drawAll(ctx);
+						currentTank = game.tankManager.nextTank();
+						game.gui.display(currentTank);
+
+						game.state = "MOVING";
 					break;
 				}
 				lastTicks = ticks;
@@ -504,7 +694,7 @@ var tankwar = (function() {
 			var vx =  Math.cos(tank.angle*Math.PI/180)*tank.power/10;
 			var vy =  Math.sin(tank.angle*Math.PI/180)*tank.power/10;
 			
-			this.projectileManager.add(new Bomb(muzzleX,muzzleY,vx,vy,this,0.5));
+			this.projectileManager.add(new Bomb(muzzleX,muzzleY,vx,vy,this,0.25,20));
 		}
 
 	}
