@@ -81,6 +81,15 @@ var tankwar = (function() {
 		hitpointDisplay.style.background = 'linear-gradient(to right, red, lime 100px)';
 		container.appendChild(hitpointDisplay);
 
+		var weaponSelection = document.createElement('select');
+		weaponSelection.style.position = 'absolute';
+		weaponSelection.id = 'tankWeaponSelection';
+		weaponSelection.style.top = '457px'; weaponSelection.style.left = '71px';
+		weaponSelection.style.width = '210px'; weaponSelection.style.height = '18px';
+		weaponSelection.style.textAlign = 'center'; weaponSelection.style.zIndex = 20;
+		weaponSelection.style.borderRadius = '0'; weaponSelection.style.border = '0'; 
+		weaponSelection.style.background = 'transparent';
+		container.appendChild(weaponSelection);
 		
 
 		this.display = function(tank) {
@@ -88,6 +97,15 @@ var tankwar = (function() {
 			angleDisplay.innerHTML = tank.angle;
 			nameDisplay.innerHTML = tank.name;
 			hitpointDisplay.style.width = Math.round(tank.hitpoints)+'px';
+			weaponSelection.innerHTML = '';
+			var weapons = tank.armory.listWeapons();
+			for(var i=0; i<weapons.length; i++) {
+				var option = document.createElement('option');
+				option.innerHTML = weapons[i].name;
+				option.value = weapons[i].id;
+				option.selected = weapons[i].selected;
+				weaponSelection.appendChild(option);
+			}
 		}
 		
 	}
@@ -167,22 +185,26 @@ var tankwar = (function() {
 	}
 	
 	var Tank = function(name, color, game) {
-		this.name = name;
-		this.game = game;
-		this.color = color;
+		this.initialize = function(name, color, game) {
+			this.name = name;
+			this.game = game;
+			this.color = color;
 		
-		this.gfxBuffer = document.createElement('canvas');
-		this.gfxBuffer.width = 20;
-		this.gfxBuffer.height = 18;
-		this.gfxCtx = this.gfxBuffer.getContext('2d');
+			this.gfxBuffer = document.createElement('canvas');
+			this.gfxBuffer.width = 20;
+			this.gfxBuffer.height = 18;
+			this.gfxCtx = this.gfxBuffer.getContext('2d');
 		
 
-		this.angle = 135;
-		this.power = 500;
-		this.hitpoints = 100;
+			this.angle = 0;
+			this.power = 500;
+			this.hitpoints = 100;
+			this.armory = new Armory(this,game);
 
-		this.x = 200;
-		this.y = 200;
+			this.x = 0;
+			this.y = 0;
+		}
+		this.initialize.apply(this,arguments);
 		
 		var tempAngle = this.angle;
 		var tempPower = this.power;
@@ -200,7 +222,9 @@ var tankwar = (function() {
 			this.update();
 		}
 		this.fire = function() {
-			game.fireWeapon(this.weapon, this);
+			var weapon = this.armory.useWeapon();
+			if(!weapon) return false;
+			game.fireWeapon(weapon, this);
 		}
 		this.damage = function(dmg) {
 			if(this.hitpoints <= 0) return;
@@ -209,6 +233,14 @@ var tankwar = (function() {
 			this.update();
 			if(this.hitpoints <= 0)
 				this.hitpoints = 0;
+		}
+		this.getMuzzle = function() {
+			return {
+				x: this.x + Math.cos(this.angle*Math.PI/180)*11,
+				y: this.y + 8 + Math.sin(this.angle*Math.PI/180)*11,
+				vx: Math.cos(this.angle*Math.PI/180)*this.power/10,
+				vy: Math.sin(this.angle*Math.PI/180)*this.power/10
+			}
 		}
 		
 		this.update = function() {
@@ -258,10 +290,13 @@ var tankwar = (function() {
 		this.update();
 	}
 	
-	var Bullet = function(x,y,vx,vy,game) {
-		this.game = game;
-		this.x = x; this.y = y;
-		this.vx = vx; this.vy = vy;
+	var Projectile = function(x,y,vx,vy,game) {
+		this.initialize = function(x,y,vx,vy,game) {
+			this.game = game;
+			this.x = x; this.y = y;
+			this.vx = vx; this.vy = vy;
+		}
+		this.initialize.apply(this, arguments);
 	
 		this.kill = function() {
 			this.x = NaN; this.y = NaN;
@@ -271,10 +306,11 @@ var tankwar = (function() {
 		this.tick = function(collisionCtx, ticks) {
 			if(isNaN(this.x) || isNaN(this.y))
 				return false;
-
-			this.x += (ticks/300)*this.vx; 
-			this.y += (ticks/300)*this.vy;
-			this.vy -= (ticks/300)*9.81;
+			var ax = 0, ay = -9.81, dt = (ticks/300);
+			this.x += this.vx*dt + ax*dt*dt/2; 
+			this.y += this.vy*dt + ay*dt*dt/2;
+			this.vx += ax*dt;
+			this.vy += ay*dt;
 			
 			// check for pixel / terrain / tank collision
 			var pixels = collisionCtx.getImageData(this.x-1,collisionCtx.canvas.height-(this.y+1),3,3);
@@ -307,12 +343,11 @@ var tankwar = (function() {
 		this.explode = function() { return false; } // after all motion was handled (return true if exploded)
 		this.action = function() { return false; }  // on player action (space bar) (return true if handled)
 	}
-	var Bomb = function(x,y,vx,vy,game,size,damage) {
-		this.game = game;
+	var ProjBomb = function(x,y,vx,vy,game,size,damage) {
+		this.initialize.apply(this, arguments);
+
 		this.size = size;
 		this.damage = damage;
-		this.x = x; this.y = y;
-		this.vx = vx; this.vy = vy;
 		
 		this.explode = function() {
 			this.game.explosionManager.add(this.game.sprites.explosion,this.x,this.y,this.size);
@@ -330,7 +365,88 @@ var tankwar = (function() {
 			return true;
 		}
 	}
-	Bomb.prototype = new Bullet();
+	ProjBomb.prototype = new Projectile();
+	
+	var Weapon = function(tank, game) {
+		this.initialize = function(tank, game) {
+			this.tank = tank;
+			this.game = game;
+			this.name = '';
+		}
+		this.initialize.apply(this,arguments);
+		
+		this.fire = function() { return false; }
+		this.aimLeft = function() { return false; }
+		this.aimRight = function() { return false; }
+		this.powerUp = function() { return false; }
+		this.powerDown = function() { return false; }
+	}
+	var WepCannon = function(tank,game) {
+		this.initialize.apply(this,arguments);
+		this.name = 'Kanone';
+		this.size = 0.25;
+		this.damage = 20;
+
+		this.fire = function() {
+			var muzzle = this.tank.getMuzzle();
+			this.game.projectileManager.add(new ProjBomb(muzzle.x,muzzle.y,muzzle.vx,muzzle.vy,this.game,this.size,this.damage));
+			return true;
+		}
+	}
+	WepCannon.prototype = new Weapon();
+	var WepLightBomb = function(tank,game) {
+		this.initialize.apply(this,arguments);
+		this.name = 'Leichte Bombe';
+		this.size = 0.35;
+		this.damage = 30;
+	}
+	WepLightBomb.prototype = new WepCannon();
+	var WepHeavyBomb = function(tank,game) {
+		this.initialize.apply(this,arguments);
+		this.name = 'Schwere Bombe';
+		this.size = 0.5;
+		this.damage = 40;
+	}
+	WepHeavyBomb.prototype = new WepCannon();
+	
+	var Armory = function(tank,game) {
+		var weapons = [
+			{weapon: new WepCannon(tank,game), amount: -1},
+			{weapon: new WepLightBomb(tank,game), amount: 5},
+			{weapon: new WepHeavyBomb(tank,game), amount: 5}
+		];
+		var currentWeapon = 0;
+		
+		this.selectWeapon = function(id) {
+			if(weapons[id].amount != 0)
+				currentWeapon = id;
+			return weapons[currentWeapon];
+		}
+		this.useWeapon = function() {
+			var id = currentWeapon;
+			if(weapons[id].amount == 0)
+				return false;
+			if(weapons[id].amount > 0)
+			weapons[id].amount--;
+			if(weapons[id].amount == 0)
+				currentWeapon = 0;
+
+			return weapons[id].weapon;
+		}
+		this.listWeapons = function() {
+			var list = [];
+			for(var i=0; i<weapons.length; i++) {
+				if(weapons[i].amount == -1)
+					list.push({name: weapons[i].weapon.name, id: i, selected: (i==currentWeapon)});
+				if(weapons[i].amount > 0)
+					list.push({name: weapons[i].weapon.name+' ('+weapons[i].amount+')', id: i, selected: (i==currentWeapon)});					
+			}
+			return list;
+		}
+		
+	}
+	
+	
 
 	var Controller = function() {
 		this.inputState = {up: false, down: false, left: false, right: false, fast: false, trigger: false};
@@ -370,8 +486,10 @@ var tankwar = (function() {
 
 			if(ev.keyCode == 32) controller.inputState.trigger = true;
 
-			if(ev.keyCode == 16) controller.inputState.fast = true;			
-		}, false);
+			if(ev.keyCode == 16) controller.inputState.fast = true;		
+			
+			ev.stopPropagation(); ev.preventDefault();	
+		}, true);
 		document.documentElement.addEventListener('keyup',function(ev) {
 			if(ev.keyCode == 37) controller.inputState.left = false;
 			if(ev.keyCode == 38) controller.inputState.up = false;
@@ -381,7 +499,16 @@ var tankwar = (function() {
 			if(ev.keyCode == 32) controller.inputState.trigger = false;
 
 			if(ev.keyCode == 16) controller.inputState.fast = false;			
-		}, false);
+
+			ev.stopPropagation(); ev.preventDefault();	
+		}, true);
+		var weaponSelection = null;
+		this.controlTank = function(tank, game, ticks) {
+			var stateChanged = this.__proto__.controlTank.call(this, tank, game, ticks);
+			if(!weaponSelection) weaponSelection = document.getElementById('tankWeaponSelection')
+			tank.armory.selectWeapon(weaponSelection.options[weaponSelection.selectedIndex].value);
+			return stateChanged;
+		}
 	}
 	KeyboardController.prototype = new Controller();
 	
@@ -688,13 +815,8 @@ var tankwar = (function() {
 		},
 		
 		fireWeapon: function(weapon, tank) {
-			this.state = "SHOOTING";
-			var muzzleX = tank.x + Math.cos(tank.angle*Math.PI/180)*11;
-			var muzzleY = tank.y + 8 + Math.sin(tank.angle*Math.PI/180)*11;
-			var vx =  Math.cos(tank.angle*Math.PI/180)*tank.power/10;
-			var vy =  Math.sin(tank.angle*Math.PI/180)*tank.power/10;
-			
-			this.projectileManager.add(new Bomb(muzzleX,muzzleY,vx,vy,this,0.25,20));
+			if(weapon.fire())
+				this.state = "SHOOTING";
 		}
 
 	}
