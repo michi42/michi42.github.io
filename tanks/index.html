@@ -88,7 +88,8 @@ var tankwar = (function() {
 		weaponSelection.style.width = '210px'; weaponSelection.style.height = '18px';
 		weaponSelection.style.textAlign = 'center'; weaponSelection.style.zIndex = 20;
 		weaponSelection.style.borderRadius = '0'; weaponSelection.style.border = '0'; 
-		weaponSelection.style.background = 'transparent';
+		weaponSelection.style.background = 'transparent'; weaponSelection.style.outline = '0';
+		weaponSelection.onchange = function(){this.blur()};
 		container.appendChild(weaponSelection);
 		
 
@@ -96,7 +97,7 @@ var tankwar = (function() {
 			powerDisplay.innerHTML = tank.power;
 			angleDisplay.innerHTML = tank.angle;
 			nameDisplay.innerHTML = tank.name;
-			hitpointDisplay.style.width = Math.round(tank.hitpoints)+'px';
+			hitpointDisplay.style.width = Math.round(tank.hitpoints)*100/tank.maxHitpoints+'px';
 			weaponSelection.innerHTML = '';
 			var weapons = tank.armory.listWeapons();
 			for(var i=0; i<weapons.length; i++) {
@@ -184,11 +185,12 @@ var tankwar = (function() {
 		return this;
 	}
 	
-	var Tank = function(name, color, game) {
-		this.initialize = function(name, color, game) {
+	var Tank = function(name, maxHitpoints, color, game) {
+		this.initialize = function(name, maxHitpoints, color, game) {
 			this.name = name;
 			this.game = game;
 			this.color = color;
+			this.maxHitpoints = maxHitpoints
 		
 			this.gfxBuffer = document.createElement('canvas');
 			this.gfxBuffer.width = 20;
@@ -198,7 +200,7 @@ var tankwar = (function() {
 
 			this.angle = 0;
 			this.power = 500;
-			this.hitpoints = 100;
+			this.hitpoints = this.maxHitpoints;
 			this.armory = new Armory(this,game);
 
 			this.x = 0;
@@ -238,8 +240,8 @@ var tankwar = (function() {
 			return {
 				x: this.x + Math.cos(this.angle*Math.PI/180)*11,
 				y: this.y + 8 + Math.sin(this.angle*Math.PI/180)*11,
-				vx: Math.cos(this.angle*Math.PI/180)*this.power/10,
-				vy: Math.sin(this.angle*Math.PI/180)*this.power/10
+				vx: Math.cos(this.angle*Math.PI/180)*(this.power+1)/10,
+				vy: Math.sin(this.angle*Math.PI/180)*(this.power+1)/10
 			}
 		}
 		
@@ -250,9 +252,9 @@ var tankwar = (function() {
 			else
 				game.sprites.tankR.draw(this.gfxCtx,0,2,-6,1);
 
-			var curColor = {r: Math.round(this.color.r*(this.hitpoints/100)),
-			                g: Math.round(this.color.g*(this.hitpoints/100)),
-			                b: Math.round(this.color.b*(this.hitpoints/100))};
+			var curColor = {r: Math.round(this.color.r*(this.hitpoints/this.maxHitpoints)),
+			                g: Math.round(this.color.g*(this.hitpoints/this.maxHitpoints)),
+			                b: Math.round(this.color.b*(this.hitpoints/this.maxHitpoints))};
 			var pixels = this.gfxCtx.getImageData(0,0,20,18);
 			for(var i=0;i<pixels.data.length;i+=4) {
 				if(pixels.data[i]==255&&pixels.data[i+1]==255&&pixels.data[i+2]==255) {
@@ -343,21 +345,18 @@ var tankwar = (function() {
 		this.explode = function() { return false; } // after all motion was handled (return true if exploded)
 		this.action = function() { return false; }  // on player action (space bar) (return true if handled)
 	}
-	var ProjBomb = function(x,y,vx,vy,game,size,damage) {
+	var ProjBomb = function(x,y,vx,vy,game,options) {
 		this.initialize.apply(this, arguments);
-
-		this.size = size;
-		this.damage = damage;
-		
+		this.options = options;
 		this.explode = function() {
-			this.game.explosionManager.add(this.game.sprites.explosion,this.x,this.y,this.size);
+			this.game.explosionManager.add(this.game.sprites.explosion,this.x,this.y,this.options.size);
 
 			var bomb = this;
 			this.game.tankManager.damage(function(tx, ty) {
 				var dx = bomb.x-tx, dy = bomb.y-ty;
 				var dist = Math.sqrt(dx*dx+dy*dy);
-				var realsize = 130*bomb.size;
-				var dmg = bomb.damage*(realsize-dist)/realsize;
+				var realsize = 130*bomb.options.size;
+				var dmg = bomb.options.damage*(realsize-dist)/realsize;
 				if(dmg<0) dmg = 0;
 				return {thermal: dmg*0.2, physical: dmg*0.8}
 			});
@@ -366,7 +365,209 @@ var tankwar = (function() {
 		}
 	}
 	ProjBomb.prototype = new Projectile();
+
+	var ProjFrog = function(x,y,vx,vy,game,options) {
+		this.initialize.apply(this, arguments);
+		this.options = options;
+		this.forksLeft = this.options.forks;
+		this.terrainCollide = function() {
+			if(this.forksLeft == 0) return false;
+			this.forksLeft--;
+			this.vy = Math.abs(this.vy)+8;
+			this.y = this.game.terrain.heights[Math.round(this.x)]+3;
+			this.game.projectileManager.add(new ProjBomb(this.x,this.y,0,0,this.game,options));
+			return true;
+		}
+
+	}
+	ProjFrog.prototype = new ProjBomb();
 	
+	ProjDigger = function(x,y,vx,vy,game,options) {
+		this.initialize.apply(this, arguments);
+		this.explode = function() {
+			this.game.explosionManager.add({
+				totalTicks: 0,
+				tunnels: null,
+				draw: function(ctx,ticks,hitX,hitY) {
+					if(this.tunnels == null) {
+						this.tunnels = [];
+						for(var i=0; i<options.numTunnels; i++) {
+							this.tunnels.push({
+								x: hitX,
+								y: hitY,
+								angle: Math.random()*360
+							});
+						}
+					}
+					var dt = ticks - this.totalTicks;
+					for(var i=0; i<this.tunnels.length; i++) {
+						ctx.beginPath();
+						ctx.strokeStyle = 'rgb('+Settings.skyColor.join(',')+')';
+						ctx.moveTo(this.tunnels[i].x,ctx.canvas.height-this.tunnels[i].y);
+						this.tunnels[i].x += Math.cos(this.tunnels[i].angle*Math.PI/180)*dt/5;
+						this.tunnels[i].y += Math.sin(this.tunnels[i].angle*Math.PI/180)*dt/5;
+						this.tunnels[i].angle += (Math.random()-0.5)*20*dt/10;
+						ctx.lineTo(this.tunnels[i].x,ctx.canvas.height-this.tunnels[i].y);
+						ctx.lineWidth = options.tunnelWidth;
+						ctx.stroke();
+					}
+					this.totalTicks = ticks;
+					return (this.totalTicks > 3000);
+					
+				}
+			},this.x,this.y);
+
+			return true;
+		}		
+	}
+	ProjDigger.prototype = new Projectile();
+	
+	ProjDirt = function(x,y,vx,vy,game,options) {
+		this.initialize.apply(this, arguments);
+		this.explode = function() {
+			this.game.explosionManager.add({
+				draw: function(ctx,ticks,hitX,hitY) {
+					var angle = 135-ticks/10;
+					ctx.beginPath();
+					ctx.fillStyle = 'rgb('+Settings.landColor.join(',')+')';
+					ctx.moveTo(hitX,ctx.canvas.height-hitY);
+					ctx.arc(hitX,ctx.canvas.height-hitY,options.size,-135*Math.PI/180,-angle*Math.PI/180);
+					ctx.fill();
+					return (angle < 45);
+					
+				}
+			},this.x,this.y);
+
+			return true;
+		}		
+	}
+	ProjDirt.prototype = new Projectile();
+	
+	ProjLaser = function(x,y,vx,vy,game) {
+		var dx = vx / Math.sqrt(vx*vx+vy*vy);
+		var dy = vy / Math.sqrt(vx*vx+vy*vy);
+
+		this.initialize.apply(this, arguments);
+		this.tick = function() {return false} // 'explode' = trigger instantly
+		this.explode = function() {
+			this.game.explosionManager.add({
+				draw: function(ctx,ticks,ownX,ownY) {
+					var sx = ownX+dx*(ticks/7), sy = ownY+dy*(ticks/7);
+					var mx = dx*100, my = dy*100;
+					var grad = ctx.createLinearGradient(sx-mx, ctx.canvas.height-(sy-my), sx, ctx.canvas.height-sy);
+					if((ticks/7)<100) {
+						mx = (ticks/7)*dx;
+						my = (ticks/7)*dy;
+					}
+					grad.addColorStop(1, 'yellow');
+					grad.addColorStop(0.5, 'red');
+					grad.addColorStop(0.1, 'rgb('+Settings.skyColor.join(',')+')');
+					ctx.beginPath();
+					ctx.lineWidth = 2.5+0.0005*ticks;
+					ctx.strokeStyle = grad
+					ctx.moveTo(sx-mx,ctx.canvas.height-(sy-my));
+					ctx.lineTo(sx,ctx.canvas.height-sy);
+					ctx.stroke();
+					game.tankManager.damage(function(tx,ty) {						
+						return {
+							physical:0,
+							thermal: Math.sqrt((tx-sx)*(tx-sx)+(ty-sy)*(ty-sy))<8 ? 200 : 0
+						}
+					});
+					return (ticks > 5000 || sx < 0 || sy < 0 || sx > ctx.canvas.width || sy > ctx.canvas.height);
+					
+				}
+			},this.x,this.y);
+
+			return true;
+		}		
+	}
+	ProjLaser.prototype = new Projectile();
+	
+	ProjNapalm = function(x,y,vx,vy,game,options) {
+		this.initialize.apply(this, arguments);
+		this.explode = function() {
+			this.game.explosionManager.add({
+				napalm: null,
+				totalTicks: 0,
+				draw: function(ctx,ticks,hitX,hitY) {
+					var that = this;
+
+					if(this.napalm == null) {
+						this.napalm = [];
+						for(var i=0;i<game.terrain.heights.length;i++)
+							this.napalm[i] = 0;
+					}
+					var h = function(i) {
+						if(i<0) return 1e42;
+						if(i>=that.napalm.length) return 1e42;						
+						return Math.round(game.terrain.heights[i] + that.napalm[i]);
+					}
+					
+					ctx.fillStyle = 'rgb(200,0,0)';
+					var dt = ticks-this.totalTicks;
+					for(var a=0; a<2*dt; a++) {
+						var xc = Math.round(hitX);
+						var d = 0;
+						if(h(xc)-h(xc+1)>0) d = -1;
+						if(h(xc)-h(xc-1)>0) d = +1;
+						while(d!=0) {
+							if(h(xc)-h(xc-d)<0) d=0;
+							xc -= d;
+							if(this.napalm[xc]==0)
+								ctx.fillRect(xc,ctx.canvas.height-h(xc),2,2);
+						}
+						this.napalm[xc]++;
+						ctx.fillRect(xc,ctx.canvas.height-h(xc),2,2);
+					}
+					this.totalTicks = ticks;
+					if(this.totalTicks > options.amount) {
+						game.tankManager.damage(function(tx,ty) {
+							return {
+								physical: 0,
+								thermal: that.napalm[Math.round(tx)]*2
+							}
+						});
+						return true;
+					}
+					return false;
+					
+				}
+			},this.x,this.y);
+
+			return true;
+		}		
+	}
+	ProjNapalm.prototype = new Projectile();
+	
+	var ProjMirv = function(x,y,vx,vy,game,options) {
+		this.initialize.apply(this, arguments);
+		this.options = options;
+		this.flyDur = 0;
+		this.tick = function(collisionCtx,dt) {
+			this.flyDur += dt;
+			var flying = this.__proto__.tick.call(this,collisionCtx,dt);
+			if(!flying) return false;
+			if(this.flyDur > 1000) {
+				for(var i=0; i<this.options.clusters; i++) {
+					var speed = Math.sqrt(this.vx*this.vx+this.vy*this.vy);
+					var boostX = (this.vy/speed)*50*(i-0.5*this.options.clusters)/this.options.clusters+(Math.random()-0.5)*20;
+					var boostY = -(this.vx/speed)*50*(i-0.5*this.options.clusters)/this.options.clusters+(Math.random()-0.5)*20;
+					this.game.projectileManager.add(new ProjBomb(this.x,this.y,this.vx+boostX,this.vy+boostY,this.game,this.options));
+				}
+				this.kill();
+				return false;
+			}
+			return true;
+		}
+		this.action = function() {
+			this.flyDur = 1e42;
+			return true;
+		}
+
+	}
+	ProjMirv.prototype = new ProjBomb();
+		
 	var Weapon = function(tank, game) {
 		this.initialize = function(tank, game) {
 			this.tank = tank;
@@ -381,39 +582,55 @@ var tankwar = (function() {
 		this.powerUp = function() { return false; }
 		this.powerDown = function() { return false; }
 	}
-	var WepCannon = function(tank,game) {
-		this.initialize.apply(this,arguments);
-		this.name = 'Kanone';
-		this.size = 0.25;
-		this.damage = 20;
+	var MakeProjectileWeapon = function(name,projectile,options) {
+		var ProjectileWeapon = function(tank,game) {
+			this.initialize.apply(this,arguments);
+			this.name = name;
 
-		this.fire = function() {
-			var muzzle = this.tank.getMuzzle();
-			this.game.projectileManager.add(new ProjBomb(muzzle.x,muzzle.y,muzzle.vx,muzzle.vy,this.game,this.size,this.damage));
-			return true;
+			this.fire = function() {
+				var muzzle = this.tank.getMuzzle();
+				this.game.projectileManager.add(new projectile(muzzle.x,muzzle.y,muzzle.vx,muzzle.vy,this.game,options));
+				return true;
+			}
 		}
+		ProjectileWeapon.prototype = new Weapon();
+		return ProjectileWeapon;
 	}
-	WepCannon.prototype = new Weapon();
-	var WepLightBomb = function(tank,game) {
-		this.initialize.apply(this,arguments);
-		this.name = 'Leichte Bombe';
-		this.size = 0.35;
-		this.damage = 30;
-	}
-	WepLightBomb.prototype = new WepCannon();
-	var WepHeavyBomb = function(tank,game) {
-		this.initialize.apply(this,arguments);
-		this.name = 'Schwere Bombe';
-		this.size = 0.5;
-		this.damage = 40;
-	}
-	WepHeavyBomb.prototype = new WepCannon();
+
+	var WepCannon = MakeProjectileWeapon('Kanone', ProjBomb, {size:0.25, damage: 30})
+	var WepLightBomb = MakeProjectileWeapon('Leichte Bombe', ProjBomb, {size:0.35, damage: 50})
+	var WepHeavyBomb = MakeProjectileWeapon('Schwere Bombe', ProjBomb, {size:0.5, damage: 60})
+
+	var WepDigger = MakeProjectileWeapon('Graber',ProjDigger, {numTunnels: 20, tunnelWidth: 5});
+	var WepDirt = MakeProjectileWeapon('Dreck',ProjDirt, {size: 100});
+	var WepSuperDirt = MakeProjectileWeapon('Riesen-Dreck',ProjDirt, {size: 200});
+
+	var WepLaser = MakeProjectileWeapon('Laser',ProjLaser, {});
+
+	var WepFrog = MakeProjectileWeapon('Frosch',ProjFrog, {forks:4, size: 0.40, damage: 55});
+
+	var WepNapalm = MakeProjectileWeapon('Napalm',ProjNapalm, {amount:2000});
+	var WepHeavyNapalm = MakeProjectileWeapon('Riesen-Napalm',ProjNapalm, {amount:4000});
+	
+	var Wep6xMirv = MakeProjectileWeapon('6x-Mirv', ProjMirv, {size:0.6, damage: 70, clusters: 6})
+	var Wep4xMirv = MakeProjectileWeapon('4x-Mirv', ProjMirv, {size:0.4, damage: 55, clusters: 4})
+	var WepClusterBomb = MakeProjectileWeapon('Splitterbombe', ProjMirv, {size:0.15, damage: 20, clusters: 20})
 	
 	var Armory = function(tank,game) {
 		var weapons = [
 			{weapon: new WepCannon(tank,game), amount: -1},
 			{weapon: new WepLightBomb(tank,game), amount: 5},
-			{weapon: new WepHeavyBomb(tank,game), amount: 5}
+			{weapon: new WepHeavyBomb(tank,game), amount: 5},
+			{weapon: new WepDigger(tank,game), amount: 5},
+			{weapon: new WepDirt(tank,game), amount: 5},
+			{weapon: new WepSuperDirt(tank,game), amount: 5},
+			{weapon: new WepLaser(tank,game), amount: 5},
+			{weapon: new WepFrog(tank,game), amount: 5},
+			{weapon: new WepNapalm(tank,game), amount: 5},
+			{weapon: new WepHeavyNapalm(tank,game), amount: 5},
+			{weapon: new Wep4xMirv(tank,game), amount: 5},
+			{weapon: new Wep6xMirv(tank,game), amount: 5},
+			{weapon: new WepClusterBomb(tank,game), amount: 5},
 		];
 		var currentWeapon = 0;
 		
@@ -469,9 +686,15 @@ var tankwar = (function() {
 				return true;
 			}
 			if(this.inputState.trigger) {
+				this.inputState.trigger = false;
 				tank.fire();
 			}
 			
+		}
+		this.controlProjectile = function(projectile, game, ticks) {
+			if(this.inputState.trigger) {
+				projectile.action();
+			}
 		}
 	}
 	
@@ -504,10 +727,9 @@ var tankwar = (function() {
 		}, true);
 		var weaponSelection = null;
 		this.controlTank = function(tank, game, ticks) {
-			var stateChanged = this.__proto__.controlTank.call(this, tank, game, ticks);
 			if(!weaponSelection) weaponSelection = document.getElementById('tankWeaponSelection')
 			tank.armory.selectWeapon(weaponSelection.options[weaponSelection.selectedIndex].value);
-			return stateChanged;
+			return this.__proto__.controlTank.call(this, tank, game, ticks);
 		}
 	}
 	KeyboardController.prototype = new Controller();
@@ -678,7 +900,7 @@ var tankwar = (function() {
 					var x = positions.splice(Math.floor(Math.random()*positions.length),1)[0];
 					console.log(x);
 					var tank = this.tanks[i];
-					tank.hitpoints = 100;
+					tank.hitpoints = tank.maxHitpoints;
 					tank.x = x;
 					tank.y = terrain.heights[x]+2;
 				}
@@ -693,13 +915,18 @@ var tankwar = (function() {
 				this.projectiles.push(projectile);
 			},
 			
-			tick: function(collisonCtx, overlayCtx, ticks) {
+			tick: function(collisonCtx, overlayCtx, ticks, controller) {
 				this.flying = false;
 				overlayCtx.clearRect(0,0,overlayCtx.canvas.width,overlayCtx.canvas.height)
 				for(var i=0; i<this.projectiles.length; i++) {
-					if(this.projectiles[i].tick(collisonCtx, ticks))
-						this.flying = true;
+					if(!this.projectiles[i].landed) {
+						if(this.projectiles[i].tick(collisonCtx, ticks))
+							this.flying = true;
+						else
+							this.projectiles[i].landed = true;
+					}
 					this.projectiles[i].draw(overlayCtx);
+					controller.controlProjectile(this.projectiles[i]);
 				}
 				
 				// finished?
@@ -746,8 +973,8 @@ var tankwar = (function() {
 			this.terrain.drawToImage(ctx);
 			this.state = "NEXTTURN";
 
-			this.tankManager.add(new Tank('Player 1',{r:255,g:127,b:0},this));
-			this.tankManager.add(new Tank('Player 2',{r:0,g:255,b:0},this));
+			this.tankManager.add(new Tank('Player 1',200,{r:255,g:127,b:0},this));
+			this.tankManager.add(new Tank('Player 2',200,{r:0,g:255,b:0},this));
 			this.tankManager.spawnTanks(this.terrain);
 			
 			this.tankManager.drawAll(ctx);
@@ -776,7 +1003,7 @@ var tankwar = (function() {
 					break;
 					
 					case "SHOOTING":
-						if(game.projectileManager.tick(ctx,overlayCtx,dTicks))
+						if(game.projectileManager.tick(ctx,overlayCtx,dTicks,game.controller))
 							game.state = "EXPLODING";
 							
 					break;
