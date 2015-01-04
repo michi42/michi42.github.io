@@ -10,107 +10,31 @@ body {
 <meta charset="utf-8" />
 </head>
 <body>
-
+<div id="tankwar_setup">
+<fieldset><legend>Spieler</legend>
+<input type="button" id="setup_tanks_plus" value="+" />
+<input type="button" id="setup_tanks_minus" value="-" />
+<table>
+<thead><tr><th></th><th>Name</th><th>Hitpoints</th><th>Startkapital</th></tr></thead>
+<tbody id="setup_tanks">
+</tbody>
+</table>
+</fieldset>
+<input type="button" id="setup_start" value="FIGHT" />
+</div>
 <div id="tankwar">
 </div>
 
 <script>
-
-var tankwar = (function() {
-	
 	var Settings = {
 		landColor: [0,127,0],
-		skyColor: [56,0,160]
+		skyColor: [56,0,160],
+		tankColors: [
+			[255,127,0], [0,255,0], [255,0,0], [100,100,255],
+			[255,0,255], [255,255,0], [0,255,255], [255,255,255]
+		]
 	};
-	
-	var FightGUI = function(container) {
-		container.style.width = '640px';
-		container.style.height = '480px';
-	
-		var gui = document.createElement('img');
-		gui.src = 'data/fightgui.png';
-		gui.style.position = 'absolute';
-		gui.style.top = 0; gui.style.left = 0;
-		gui.style.zIndex = 0;
-		container.appendChild(gui);
-		
-		var gameCanvas = document.createElement('canvas');
-		var overlayCanvas = document.createElement('canvas');
-		gameCanvas.width = overlayCanvas.width = 610;
-		gameCanvas.height = overlayCanvas.height = 375;
-		gameCanvas.zIndex = 1; overlayCanvas.zIndex = 2;
-		gameCanvas.style.position = overlayCanvas.style.position = 'absolute';
-		gameCanvas.style.top = overlayCanvas.style.top = '65px';
-		gameCanvas.style.left = overlayCanvas.style.left = '15px';		
-		
-		container.appendChild(gameCanvas); container.appendChild(overlayCanvas);
-		
-		container.style.position = 'relative';
-		
-		// expose canvas contexts for drawing
-		this.gameCtx = gameCanvas.getContext('2d');
-		this.overlayCtx = overlayCanvas.getContext('2d');
-		
-		var powerDisplay = document.createElement('div');
-		powerDisplay.style.position = 'absolute';
-		powerDisplay.style.top = '9px'; powerDisplay.style.left = '72px';
-		powerDisplay.style.width = '60px'; powerDisplay.style.height = '18px';
-		powerDisplay.style.textAlign = 'center'; powerDisplay.style.zIndex = 20;
-		container.appendChild(powerDisplay);
 
-		var angleDisplay = document.createElement('div');
-		angleDisplay.style.position = 'absolute';
-		angleDisplay.style.top = '32px'; angleDisplay.style.left = '72px';
-		angleDisplay.style.width = '60px'; angleDisplay.style.height = '18px';
-		angleDisplay.style.textAlign = 'center'; angleDisplay.style.zIndex = 20;
-		container.appendChild(angleDisplay);
-
-		var nameDisplay = document.createElement('div');
-		nameDisplay.style.position = 'absolute';
-		nameDisplay.style.top = '8px'; nameDisplay.style.left = '480px';
-		nameDisplay.style.width = '153px'; nameDisplay.style.height = '18px';
-		nameDisplay.style.textAlign = 'center'; nameDisplay.style.zIndex = 20;
-		container.appendChild(nameDisplay);
-
-		
-		var hitpointDisplay = document.createElement('div');
-		hitpointDisplay.style.position = 'absolute';
-		hitpointDisplay.style.top = '31px'; hitpointDisplay.style.left = '534px';
-		hitpointDisplay.style.width = '100px'; hitpointDisplay.style.height = '18px';
-		hitpointDisplay.style.textAlign = 'center'; hitpointDisplay.style.zIndex = 20;
-		hitpointDisplay.style.background = 'linear-gradient(to right, red, lime 100px)';
-		container.appendChild(hitpointDisplay);
-
-		var weaponSelection = document.createElement('select');
-		weaponSelection.style.position = 'absolute';
-		weaponSelection.id = 'tankWeaponSelection';
-		weaponSelection.style.top = '457px'; weaponSelection.style.left = '71px';
-		weaponSelection.style.width = '210px'; weaponSelection.style.height = '18px';
-		weaponSelection.style.textAlign = 'center'; weaponSelection.style.zIndex = 20;
-		weaponSelection.style.borderRadius = '0'; weaponSelection.style.border = '0'; 
-		weaponSelection.style.background = 'transparent'; weaponSelection.style.outline = '0';
-		weaponSelection.onchange = function(){this.blur()};
-		container.appendChild(weaponSelection);
-		
-
-		this.display = function(tank) {
-			powerDisplay.innerHTML = tank.power;
-			angleDisplay.innerHTML = tank.angle;
-			nameDisplay.innerHTML = tank.name;
-			hitpointDisplay.style.width = Math.round(tank.hitpoints)*100/tank.maxHitpoints+'px';
-			weaponSelection.innerHTML = '';
-			var weapons = tank.armory.listWeapons();
-			for(var i=0; i<weapons.length; i++) {
-				var option = document.createElement('option');
-				option.innerHTML = weapons[i].name;
-				option.value = weapons[i].id;
-				option.selected = weapons[i].selected;
-				weaponSelection.appendChild(option);
-			}
-		}
-		
-	}
-	
 	var WallManager = function(game) {
 		// return false to kill the bullet (explode)
 		// return true to keep it
@@ -212,11 +136,13 @@ var tankwar = (function() {
 		var tempPower = this.power;
 		
 		this.changeAngle = function(angle) {
+			if(this.armory.changeAngle(angle)) return; // selected weapon handled event
 			tempAngle = (tempAngle + 180 + angle) % 180;
 			this.angle = Math.round(tempAngle);
 			this.update();
 		}
 		this.changePower = function(power) {
+			if(this.armory.changePower(power)) return; // selected weapon handled event
 			tempPower += power;
 			if(tempPower < 0) tempPower = 0;
 			if(tempPower > 1000) tempPower = 1000;
@@ -252,19 +178,19 @@ var tankwar = (function() {
 			else
 				game.sprites.tankR.draw(this.gfxCtx,0,2,-6,1);
 
-			var curColor = {r: Math.round(this.color.r*(this.hitpoints/this.maxHitpoints)),
-			                g: Math.round(this.color.g*(this.hitpoints/this.maxHitpoints)),
-			                b: Math.round(this.color.b*(this.hitpoints/this.maxHitpoints))};
+			var curColor = [Math.round(this.color[0]*(this.hitpoints/this.maxHitpoints)),
+			                Math.round(this.color[1]*(this.hitpoints/this.maxHitpoints)),
+			                Math.round(this.color[2]*(this.hitpoints/this.maxHitpoints))];
 			var pixels = this.gfxCtx.getImageData(0,0,20,18);
 			for(var i=0;i<pixels.data.length;i+=4) {
 				if(pixels.data[i]==255&&pixels.data[i+1]==255&&pixels.data[i+2]==255) {
-					pixels.data[i] = curColor.r;
-					pixels.data[i+1] = curColor.g;
-					pixels.data[i+2] = curColor.b;
+					pixels.data[i] = curColor[0];
+					pixels.data[i+1] = curColor[1];
+					pixels.data[i+2] = curColor[2];
 				}
 			}
 			this.gfxCtx.putImageData(pixels,0,0);
-			this.gfxCtx.strokeStyle='rgb('+curColor.r+','+curColor.g+','+curColor.b+')';
+			this.gfxCtx.strokeStyle='rgb('+curColor.join(',')+')';
 			this.gfxCtx.beginPath();
 			this.gfxCtx.lineWidth=1.5;
 			this.gfxCtx.moveTo(10,8);
@@ -291,7 +217,6 @@ var tankwar = (function() {
 
 		this.update();
 	}
-	
 	var Projectile = function(x,y,vx,vy,game) {
 		this.initialize = function(x,y,vx,vy,game) {
 			this.game = game;
@@ -304,7 +229,6 @@ var tankwar = (function() {
 			this.x = NaN; this.y = NaN;
 			this.explode = function() {};
 		}
-
 		this.tick = function(collisionCtx, ticks) {
 			if(isNaN(this.x) || isNaN(this.y))
 				return false;
@@ -315,11 +239,21 @@ var tankwar = (function() {
 			this.vy += ay*dt;
 			
 			// check for pixel / terrain / tank collision
-			var pixels = collisionCtx.getImageData(this.x-1,collisionCtx.canvas.height-(this.y+1),3,3);
-			for(var i=0; i<pixels.data.length; i+=4) {
-				if(pixels.data[i+3]==0) continue;
-				if(pixels.data[i]!=Settings.skyColor[0] || pixels.data[i+1]!=Settings.skyColor[1] || pixels.data[i+2]!=Settings.skyColor[2]) {
-					return this.terrainCollide();
+			// use pre-cached pixel data in collisionCtx.cachedPixels,
+			// initialized at the beginning of the 'SHOOTING' phase
+			for(var ix=0; ix<3; ix++) {
+				for(var iy=0; iy<3; iy++) {
+					var xx=Math.round(this.x)-1+ix;
+					var yy=collisionCtx.canvas.height-(Math.round(this.y)-1+iy);
+					if(xx < 0 || yy < 0 || xx >= collisionCtx.canvas.width || yy >= collisionCtx.canvas.height)
+						continue;
+					var i = xx + collisionCtx.canvas.width*yy;
+					i *= 4;
+					if(collisionCtx.cachedPixels.data[i+3]==0)
+						continue;
+					if(collisionCtx.cachedPixels.data[i]!=Settings.skyColor[0] || collisionCtx.cachedPixels.data[i+1]!=Settings.skyColor[1] || collisionCtx.cachedPixels.data[i+2]!=Settings.skyColor[2]) {
+						return this.terrainCollide();
+					}
 				}
 			}
 
@@ -450,6 +384,7 @@ var tankwar = (function() {
 		this.initialize.apply(this, arguments);
 		this.tick = function() {return false} // 'explode' = trigger instantly
 		this.explode = function() {
+			var damagedTanks = [];
 			this.game.explosionManager.add({
 				draw: function(ctx,ticks,ownX,ownY) {
 					var sx = ownX+dx*(ticks/7), sy = ownY+dy*(ticks/7);
@@ -468,10 +403,17 @@ var tankwar = (function() {
 					ctx.moveTo(sx-mx,ctx.canvas.height-(sy-my));
 					ctx.lineTo(sx,ctx.canvas.height-sy);
 					ctx.stroke();
-					game.tankManager.damage(function(tx,ty) {						
+					game.tankManager.damage(function(tx,ty,tank) {						
+						var hit = (Math.sqrt((tx-sx)*(tx-sx)+(ty-sy)*(ty-sy))<10);
+						if(hit) {
+							if(damagedTanks.indexOf(tank) >= 0)
+								hit = false;
+							else
+								damagedTanks.push(tank);
+						}
 						return {
 							physical:0,
-							thermal: Math.sqrt((tx-sx)*(tx-sx)+(ty-sy)*(ty-sy))<8 ? 200 : 0
+							thermal: hit ? 200 : 0
 						}
 					});
 					return (ticks > 5000 || sx < 0 || sy < 0 || sx > ctx.canvas.width || sy > ctx.canvas.height);
@@ -587,7 +529,154 @@ var tankwar = (function() {
 		}
 	}
 	ProjNuclear.prototype = new Projectile();
+
+	var ProjBomber = function(x,y,vx,vy,game,options) {
+		this.initialize.apply(this, arguments);
+		this.x = 600;
+		this.y = 375;
+		this.dropped = false;
+		this.tick = function(collisionCtx, ticks) {
+			if(isNaN(this.x) || isNaN(this.y))
+				return false;
+			this.x -= options.speed * (ticks/1000);
+
+			if(this.dropped)
+				this.x -= 1000 * (ticks/1000);
+
+			return (this.x > -150);
+		}
 		
+		this.draw = function(ctx) {
+			game.sprites.bomber.draw(ctx,0,this.x,this.y,1);
+		}
+		this.explode = function() { return false; }
+		this.action = function() {
+			if(this.dropped) return false;
+
+			this.dropped = true;
+			this.game.projectileManager.add(new ProjBomb(this.x,this.y-40,-options.speed/6,0,this.game,options));
+			return true;
+		}
+	}
+	ProjBomber.prototype = new Projectile();
+	
+	var ProjSatellite = function(x,y,vx,vy,game,options) {
+		this.initialize.apply(this, arguments);
+		this.x = 600;
+		this.y = 375;
+		this.fired = false;
+		this.tick = function(collisionCtx, ticks) {
+			if(isNaN(this.x) || isNaN(this.y))
+				return false;
+			this.x -= options.speed * (ticks/1000);
+
+			if(this.fired)
+				return false;
+
+			return (this.x > -150);
+		}
+		
+		this.draw = function(ctx) {
+			game.sprites.satellite.draw(ctx,0,this.x,this.y,1);
+		}
+		this.explode = function() {
+			if(!this.fired) return false;
+			var damagedTanks = [];
+			var first = true;
+			this.game.explosionManager.add({
+				draw: function(ctx,ticks,ownX,ownY) {
+					if(first) {
+						game.sprites.satellite.draw(ctx,0,ownX,ownY,1);
+						first = false;
+					}
+					var sx = ownX+87, sy = ownY-(ticks/3)-55;
+					var grad = ctx.createRadialGradient(sx, ctx.canvas.height-sy-13,10, sx, ctx.canvas.height-sy-5,2);
+					grad.addColorStop(1, 'yellow'); grad.addColorStop(0.5, 'red'); grad.addColorStop(0.1, 'rgba(0,0,0,0)');
+					ctx.beginPath();
+					ctx.lineWidth = 15+0.0005*ticks;
+					ctx.strokeStyle = grad;
+					ctx.moveTo(sx,ctx.canvas.height-(sy+20));
+					ctx.lineTo(sx,ctx.canvas.height-sy);
+					ctx.stroke();
+					game.tankManager.damage(function(tx,ty,tank) {
+						var hit = (Math.sqrt((tx-sx)*(tx-sx)+(ty-sy)*(ty-sy))<15);
+						if(hit) {
+							if(damagedTanks.indexOf(tank) >= 0)
+								hit = false;
+							else
+								damagedTanks.push(tank);
+						}
+						return {
+							physical:0,
+							thermal: hit ? 250 : 0
+						}
+					});
+					return (ticks > 5000 || sx < 0 || sy < -5 || sx > ctx.canvas.width || sy > ctx.canvas.height);
+					
+				}
+			},this.x,this.y);
+		}
+		this.action = function() {
+			if(this.fired) return false;
+
+			this.fired = true;
+			return true;
+		}
+	}
+	ProjSatellite.prototype = new Projectile();
+	
+	var ProjRoller = function(x,y,vx,vy,game,options) {
+		this.initialize.apply(this, arguments);
+		this.options = options;
+		this.flying = true;
+		this.rollDir = 0;
+		this.tick = function(collisionCtx, dt) {
+			if(this.flying) {
+				this.flying = this.__proto__.tick.call(this,collisionCtx,dt);
+				return true;
+			}
+			var xx = Math.round(this.x);
+			var yy = game.terrain.heights[xx];
+			var dyLeft=0, dyRight=0;
+			for(var dx=-5; dx<0; dx++)
+				dyLeft  += (game.terrain.heights[xx+dx]-yy)*(5+dx)/4;
+			for(var dx=+5; dx>0; dx--)
+				dyRight += (game.terrain.heights[xx+dx]-yy)*(5-dx)/4;
+			dyLeft *= options.sign; dyRight *= options.sign;
+			if(this.rollDir == 0)
+				this.rollDir = (dyLeft < dyRight)?-1:1;
+			if(this.rollDir == -1 && dyLeft > 0)
+				return false;
+			if(this.rollDir == +1 && dyRight > 0)
+				return false;
+			this.x += this.rollDir;
+			this.y = game.terrain.heights[Math.round(this.x)];
+			return true;
+		}
+	}
+	ProjRoller.prototype = new ProjBomb();
+	
+	var ProjJumper = function(x,y,vx,vy,game,options) {
+		this.initialize.apply(this, arguments);
+		this.options = options;
+		this.forked = false;
+		this.tick = function(collisionCtx,dt) {
+			if(this.forked) return false;
+			var flying = this.__proto__.tick.call(this,collisionCtx,dt);
+			if(flying) return true;
+
+			// fork
+			this.forked = true;
+			for(var i=0; i<this.options.clusters; i++) {
+				var boostX = 30*(i-0.5*this.options.clusters)/this.options.clusters+(Math.random()-0.5)*5;
+				var boostY = 50+(Math.random()-0.5)*5;
+				this.game.projectileManager.add(new ProjBomb(this.x,this.y+5,boostX,boostY,this.game,this.options));
+			}
+			return false;
+		}
+
+	}
+	ProjJumper.prototype = new ProjBomb();
 
 	var Weapon = function(tank, game) {
 		this.initialize = function(tank, game) {
@@ -598,12 +687,10 @@ var tankwar = (function() {
 		this.initialize.apply(this,arguments);
 		
 		this.fire = function() { return false; }
-		this.aimLeft = function() { return false; }
-		this.aimRight = function() { return false; }
-		this.powerUp = function() { return false; }
-		this.powerDown = function() { return false; }
+		this.changeAngle = function(angle) { return false; }
+		this.changePower = function(power) { return false; }
 	}
-	var MakeProjectileWeapon = function(name,projectile,options) {
+	var MakeWeapon = function(name,projectile,options) {
 		var ProjectileWeapon = function(tank,game) {
 			this.initialize.apply(this,arguments);
 			this.name = name;
@@ -618,26 +705,54 @@ var tankwar = (function() {
 		return ProjectileWeapon;
 	}
 
-	var WepCannon = MakeProjectileWeapon('Kanone', ProjBomb, {size:0.25, damage: 30})
-	var WepLightBomb = MakeProjectileWeapon('Leichte Bombe', ProjBomb, {size:0.35, damage: 50})
-	var WepHeavyBomb = MakeProjectileWeapon('Schwere Bombe', ProjBomb, {size:0.5, damage: 60})
+	var WepCannon = MakeWeapon('Kanone', ProjBomb, {size:0.25, damage: 30})
+	var WepLightBomb = MakeWeapon('Leichte Bombe', ProjBomb, {size:0.35, damage: 50})
+	var WepHeavyBomb = MakeWeapon('Schwere Bombe', ProjBomb, {size:0.5, damage: 60})
 
-	var WepDigger = MakeProjectileWeapon('Graber',ProjDigger, {numTunnels: 20, tunnelWidth: 5});
-	var WepDirt = MakeProjectileWeapon('Dreck',ProjDirt, {size: 100});
-	var WepSuperDirt = MakeProjectileWeapon('Riesen-Dreck',ProjDirt, {size: 200});
+	var WepDigger = MakeWeapon('Graber',ProjDigger, {numTunnels: 20, tunnelWidth: 5});
+	var WepDirt = MakeWeapon('Dreck',ProjDirt, {size: 100});
+	var WepSuperDirt = MakeWeapon('Riesen-Dreck',ProjDirt, {size: 200});
 
-	var WepLaser = MakeProjectileWeapon('Laser',ProjLaser, {});
+	var WepLaser = MakeWeapon('Laser',ProjLaser, {});
 
-	var WepFrog = MakeProjectileWeapon('Frosch',ProjFrog, {forks:4, size: 0.40, damage: 55});
+	var WepFrog = MakeWeapon('Frosch',ProjFrog, {forks:4, size: 0.40, damage: 55});
 
-	var WepNapalm = MakeProjectileWeapon('Napalm',ProjNapalm, {amount:2000});
-	var WepHeavyNapalm = MakeProjectileWeapon('Riesen-Napalm',ProjNapalm, {amount:4000});
+	var WepNapalm = MakeWeapon('Napalm',ProjNapalm, {amount:2000});
+	var WepHeavyNapalm = MakeWeapon('Riesen-Napalm',ProjNapalm, {amount:5000});
 	
-	var Wep6xMirv = MakeProjectileWeapon('6x-Mirv', ProjMirv, {size:0.6, damage: 70, clusters: 6})
-	var Wep4xMirv = MakeProjectileWeapon('4x-Mirv', ProjMirv, {size:0.4, damage: 55, clusters: 4})
-	var WepClusterBomb = MakeProjectileWeapon('Splitterbombe', ProjMirv, {size:0.15, damage: 20, clusters: 20})
+	var Wep6xMirv = MakeWeapon('6x-Mirv', ProjMirv, {size:0.6, damage: 70, clusters: 6})
+	var Wep4xMirv = MakeWeapon('4x-Mirv', ProjMirv, {size:0.4, damage: 55, clusters: 4})
+	var WepClusterBomb = MakeWeapon('Splitterbombe', ProjMirv, {size:0.15, damage: 20, clusters: 30})
 
-	var WepNuclarBomb = MakeProjectileWeapon('Atom-Bombe', ProjNuclear, {thermalDamage: 300, physicalDamage: 300})
+	var WepRoller = MakeWeapon('Abroller', ProjRoller, {size:0.45, damage: 60, sign: 1})
+	var WepUpRoller = MakeWeapon('Aufroller', ProjRoller, {size:0.45, damage: 60, sign: -1})
+
+	var WepNuclarBomb = MakeWeapon('Atom-Bombe', ProjNuclear, {thermalDamage: 300, physicalDamage: 300})
+
+	var WepBomber = MakeWeapon('Bomber', ProjBomber, {speed: 100, size:1, damage: 220})
+	var WepSatellite = MakeWeapon('Laser-Satellit', ProjSatellite, {speed: 100})
+
+	var Wep7xJumper = MakeWeapon('7x-Springer', ProjJumper, {size:0.6, damage: 70, clusters: 7})
+	var Wep3xJumper = MakeWeapon('3x-Springer', ProjJumper, {size:0.4, damage: 55, clusters: 3})
+
+	
+	var UtilGaz = function(tank,game) {
+		this.initialize.apply(this,arguments);
+		this.name = 'Benzin';
+		this.changeAngle = function(angle) {
+			var dir = (angle<0)?1:-1;
+			var xx = Math.round(tank.x);
+			var yy = game.terrain.heights[xx];
+			var dy=0;
+			for(var dx=+5; dx>0; dx--)
+				dy += (game.terrain.heights[xx+dx*dir]-yy)*(5-dx)/4;
+			if(dy > 10 || isNaN(dy)) return 0;
+			tank.x += dir;
+			tank.y = game.terrain.heights[Math.round(tank.x)];
+			return Math.max(1,Math.round(dy));
+		}
+	}
+	UtilGaz.prototype = new Weapon(); 
 	
 	var Armory = function(tank,game) {
 		var weapons = [
@@ -655,9 +770,33 @@ var tankwar = (function() {
 			{weapon: new Wep6xMirv(tank,game), amount: 5},
 			{weapon: new WepClusterBomb(tank,game), amount: 5},
 			{weapon: new WepNuclarBomb(tank,game), amount: 5},
+			{weapon: new WepBomber(tank,game), amount: 5},
+			{weapon: new WepSatellite(tank,game), amount: 5},
+			{weapon: new WepRoller(tank,game), amount: 5},
+			{weapon: new WepUpRoller(tank,game), amount: 5},
+			{weapon: new Wep3xJumper(tank,game), amount: 5},
+			{weapon: new Wep7xJumper(tank,game), amount: 5},
+			{weapon: new UtilGaz(tank,game), amount: 1000},
 		];
 		var currentWeapon = 0;
-		
+		this.changeAngle = function(angle) {
+			var result = weapons[currentWeapon].weapon.changeAngle(angle);
+			if(result === false) return false;
+			if(weapons[currentWeapon].amount > 0)
+				weapons[currentWeapon].amount = Math.max(weapons[currentWeapon].amount-result,0);
+			if(weapons[currentWeapon].amount == 0)
+				currentWeapon = 0;
+			return true;
+		}
+		this.changePower = function(power) {
+			var result = weapons[currentWeapon].weapon.changePower(power);
+			if(result === false) return false;
+			if(weapons[currentWeapon].amount > 0)
+				weapons[currentWeapon].amount = Math.max(weapons[currentWeapon].amount-result,0);
+			if(weapons[currentWeapon].amount == 0)
+				currentWeapon = 0;
+			return true;
+		}
 		this.selectWeapon = function(id) {
 			if(weapons[id].amount != 0)
 				currentWeapon = id;
@@ -686,10 +825,100 @@ var tankwar = (function() {
 		}
 		
 	}
+
+var tankwar = (function() {
+		
+	var FightGUI = function(container) {
+		container.style.width = '640px';
+		container.style.height = '480px';
+	
+		var gui = document.createElement('img');
+		gui.src = 'data/fightgui.png';
+		gui.style.position = 'absolute';
+		gui.style.top = 0; gui.style.left = 0;
+		gui.style.zIndex = 0;
+		container.appendChild(gui);
+		
+		var gameCanvas = document.createElement('canvas');
+		var overlayCanvas = document.createElement('canvas');
+		gameCanvas.width = overlayCanvas.width = 610;
+		gameCanvas.height = overlayCanvas.height = 375;
+		gameCanvas.zIndex = 1; overlayCanvas.zIndex = 2;
+		gameCanvas.style.position = overlayCanvas.style.position = 'absolute';
+		gameCanvas.style.top = overlayCanvas.style.top = '65px';
+		gameCanvas.style.left = overlayCanvas.style.left = '15px';		
+		
+		container.appendChild(gameCanvas); container.appendChild(overlayCanvas);
+		
+		container.style.position = 'relative';
+		
+		// expose canvas contexts for drawing
+		this.gameCtx = gameCanvas.getContext('2d');
+		this.overlayCtx = overlayCanvas.getContext('2d');
+		
+		var powerDisplay = document.createElement('div');
+		powerDisplay.style.position = 'absolute';
+		powerDisplay.style.top = '9px'; powerDisplay.style.left = '72px';
+		powerDisplay.style.width = '60px'; powerDisplay.style.height = '18px';
+		powerDisplay.style.textAlign = 'center'; powerDisplay.style.zIndex = 20;
+		container.appendChild(powerDisplay);
+
+		var angleDisplay = document.createElement('div');
+		angleDisplay.style.position = 'absolute';
+		angleDisplay.style.top = '32px'; angleDisplay.style.left = '72px';
+		angleDisplay.style.width = '60px'; angleDisplay.style.height = '18px';
+		angleDisplay.style.textAlign = 'center'; angleDisplay.style.zIndex = 20;
+		container.appendChild(angleDisplay);
+
+		var nameDisplay = document.createElement('div');
+		nameDisplay.style.position = 'absolute';
+		nameDisplay.style.top = '8px'; nameDisplay.style.left = '480px';
+		nameDisplay.style.width = '153px'; nameDisplay.style.height = '18px';
+		nameDisplay.style.textAlign = 'center'; nameDisplay.style.zIndex = 20;
+		container.appendChild(nameDisplay);
+
+		
+		var hitpointDisplay = document.createElement('div');
+		hitpointDisplay.style.position = 'absolute';
+		hitpointDisplay.style.top = '31px'; hitpointDisplay.style.left = '534px';
+		hitpointDisplay.style.width = '100px'; hitpointDisplay.style.height = '18px';
+		hitpointDisplay.style.textAlign = 'center'; hitpointDisplay.style.zIndex = 20;
+		hitpointDisplay.style.background = 'linear-gradient(to right, red, lime 100px)';
+		container.appendChild(hitpointDisplay);
+
+		var weaponSelection = document.createElement('select');
+		weaponSelection.style.position = 'absolute';
+		weaponSelection.id = 'tankWeaponSelection';
+		weaponSelection.style.top = '457px'; weaponSelection.style.left = '71px';
+		weaponSelection.style.width = '210px'; weaponSelection.style.height = '18px';
+		weaponSelection.style.textAlign = 'center'; weaponSelection.style.zIndex = 20;
+		weaponSelection.style.borderRadius = '0'; weaponSelection.style.border = '0'; 
+		weaponSelection.style.background = 'transparent'; weaponSelection.style.outline = '0';
+		weaponSelection.onchange = function(){this.blur()};
+		container.appendChild(weaponSelection);
+		
+
+		this.display = function(tank) {
+			powerDisplay.innerHTML = tank.power;
+			angleDisplay.innerHTML = tank.angle;
+			nameDisplay.innerHTML = tank.name;
+			hitpointDisplay.style.width = Math.round(tank.hitpoints)*100/tank.maxHitpoints+'px';
+			weaponSelection.innerHTML = '';
+			var weapons = tank.armory.listWeapons();
+			for(var i=0; i<weapons.length; i++) {
+				var option = document.createElement('option');
+				option.innerHTML = weapons[i].name;
+				option.value = weapons[i].id;
+				option.selected = weapons[i].selected;
+				weaponSelection.appendChild(option);
+			}
+		}
+		
+	}
 	
 	
 
-	var Controller = function() {
+	var Controller = function(game) {
 		this.inputState = {up: false, down: false, left: false, right: false, fast: false, trigger: false};
 		
 		this.controlTank = function(tank, game, ticks) {
@@ -717,15 +946,18 @@ var tankwar = (function() {
 		}
 		this.controlProjectile = function(projectile, game, ticks) {
 			if(this.inputState.trigger) {
+				this.inputState.trigger = false;
 				projectile.action();
 			}
 		}
 	}
 	
-	var KeyboardController = function() {
+	var KeyboardController = function(game) {
 		var controller = this;
 		document.documentElement.addEventListener('keydown',function(ev) {
-			if(ev.repeat) return;
+			if(game.state == "PREGAME") return true;
+			if(ev.repeat) return true;
+
 			if(ev.keyCode == 37) controller.inputState.left = true;
 			if(ev.keyCode == 38) controller.inputState.up = true;
 			if(ev.keyCode == 39) controller.inputState.right = true;
@@ -734,10 +966,11 @@ var tankwar = (function() {
 			if(ev.keyCode == 32) controller.inputState.trigger = true;
 
 			if(ev.keyCode == 16) controller.inputState.fast = true;		
-			
-			ev.stopPropagation(); ev.preventDefault();	
+			ev.stopPropagation(); ev.preventDefault(); return false;
 		}, true);
 		document.documentElement.addEventListener('keyup',function(ev) {
+			if(game.state == "PREGAME") return true;
+
 			if(ev.keyCode == 37) controller.inputState.left = false;
 			if(ev.keyCode == 38) controller.inputState.up = false;
 			if(ev.keyCode == 39) controller.inputState.right = false;
@@ -747,7 +980,7 @@ var tankwar = (function() {
 
 			if(ev.keyCode == 16) controller.inputState.fast = false;			
 
-			ev.stopPropagation(); ev.preventDefault();	
+			ev.stopPropagation(); ev.preventDefault(); return false;
 		}, true);
 		var weaponSelection = null;
 		this.controlTank = function(tank, game, ticks) {
@@ -802,10 +1035,16 @@ var tankwar = (function() {
 				
 				return terrain;
 			},
-			
-			generate: function(width, maxHeight, options) {
-				this.heights = this.pseudoFractalLandgen(width, maxHeight, options['roughness']);
-//				this.heights = this.solidHillLandgen(width, maxHeight, options['roughness']);
+			getGenerators: function() {
+				return [
+					{generator: this.pseudoFractalLandgen, name: 'Pseudofraktale Landschaft',
+						options:[{name:'roughness',default:0.55}]},
+					{generator: this.solidHillLandgen, name: 'Glatte Hügel',
+						options:[{name:'roughness',default:0.55}]},
+				    ];
+			},
+			generate: function(width, maxHeight, generator, options) {
+				this.heights = generator(width, maxHeight, options['roughness']);
 			},
 			
 			updateFromImage: function(ctx) {
@@ -884,7 +1123,7 @@ var tankwar = (function() {
 			damage: function(callback) {
 				for(var i=0; i<this.tanks.length; i++) {
 					var tank = this.tanks[i];
-					tank.damage(callback(tank.x,tank.y));
+					tank.damage(callback(tank.x,tank.y,tank));
 				}
 			},
 			drawAll: function(ctx) {
@@ -939,12 +1178,17 @@ var tankwar = (function() {
 				this.projectiles.push(projectile);
 			},
 			
-			tick: function(collisonCtx, overlayCtx, ticks, controller) {
+			tick: function(collisionCtx, overlayCtx, ticks, controller) {
 				this.flying = false;
-				overlayCtx.clearRect(0,0,overlayCtx.canvas.width,overlayCtx.canvas.height)
+				overlayCtx.clearRect(0,0,overlayCtx.canvas.width,overlayCtx.canvas.height);
+
+				// pre-cache pixels for collision detection
+				if(!collisionCtx.cachedPixels)
+					collisionCtx.cachedPixels = collisionCtx.getImageData(0,0,collisionCtx.canvas.width,collisionCtx.canvas.height)
+
 				for(var i=0; i<this.projectiles.length; i++) {
 					if(!this.projectiles[i].landed) {
-						if(this.projectiles[i].tick(collisonCtx, ticks))
+						if(this.projectiles[i].tick(collisionCtx, ticks))
 							this.flying = true;
 						else
 							this.projectiles[i].landed = true;
@@ -958,8 +1202,9 @@ var tankwar = (function() {
 				for(var i=0; i<this.projectiles.length; i++) {
 					this.projectiles[i].explode();
 					this.projectiles.splice(i,1); i--;
-				}				
-				overlayCtx.clearRect(0,0,overlayCtx.canvas.width,overlayCtx.canvas.height)				
+				}
+				overlayCtx.clearRect(0,0,overlayCtx.canvas.width,overlayCtx.canvas.height);
+				collisionCtx.cachedPixels = null;
 				return true;
 			},
 		},
@@ -982,23 +1227,23 @@ var tankwar = (function() {
 			
 			this.sprites.tankL = new Sprite('data/tank-l.png',13, 1, 0, 0, spriteLoaded);
 			this.sprites.tankR = new Sprite('data/tank-r.png',13, 1, 0, 0, spriteLoaded);
+
+			this.sprites.bomber = new Sprite('data/bomber.png',37, 1, 0, 0, spriteLoaded);
+			this.sprites.satellite = new Sprite('data/satellite.png',59, 1, 0, 0, spriteLoaded);
 			
 			this.gui = new FightGUI(container);
+			this.controller = new KeyboardController(this);
 		},
-		
-		controller: new KeyboardController(),
 		
 		wallManager: new BouncyWallManager(),
 
 		start: function() {
 			var ctx = this.gui.gameCtx; var overlayCtx = this.gui.overlayCtx;
 		
-			this.terrain.generate(ctx.canvas.clientWidth,ctx.canvas.clientHeight-100,{'roughness':0.55});
+			this.terrain.generate(ctx.canvas.clientWidth,ctx.canvas.clientHeight-100,this.terrain.pseudoFractalLandgen,{'roughness':0.50});
 			this.terrain.drawToImage(ctx);
 			this.state = "NEXTTURN";
 
-			this.tankManager.add(new Tank('Player 1',200,{r:255,g:127,b:0},this));
-			this.tankManager.add(new Tank('Player 2',200,{r:0,g:255,b:0},this));
 			this.tankManager.spawnTanks(this.terrain);
 			
 			this.tankManager.drawAll(ctx);
@@ -1009,12 +1254,12 @@ var tankwar = (function() {
 			var currentTank = null;
 			var lastTicks = -1;
 			function doFrame(ticks) {
+				requestAnimationFrame(doFrame);
 				if(lastTicks==-1) lastTicks = ticks;
 				var dTicks = ticks-lastTicks;
 				if(dTicks > 500) {
 					// background tab? pause ...
 					lastTicks = ticks;
-					requestAnimationFrame(doFrame);
 					return;
 				}
 				switch(game.state) {
@@ -1027,7 +1272,7 @@ var tankwar = (function() {
 					break;
 					
 					case "SHOOTING":
-						if(game.projectileManager.tick(ctx,overlayCtx,dTicks,game.controller))
+						if(game.projectileManager.tick(ctx,overlayCtx,dTicks,game.controller)) 
 							game.state = "EXPLODING";
 							
 					break;
@@ -1061,7 +1306,6 @@ var tankwar = (function() {
 					break;
 				}
 				lastTicks = ticks;
-				requestAnimationFrame(doFrame);
 			}
 			requestAnimationFrame(doFrame);
 		},
@@ -1074,9 +1318,65 @@ var tankwar = (function() {
 	}
 })();
 
+document.getElementById('tankwar_setup').style.display = 'none';
+document.getElementById('tankwar').style.display = 'none';
 tankwar.initialize(document.getElementById('tankwar'), function() {
-	tankwar.start();
+	document.getElementById('tankwar_setup').style.display = 'block';
+	tankwar.tankManager.add(new Tank('Player 1',200,Settings.tankColors[0],tankwar));
+	tankwar.tankManager.add(new Tank('Player 2',200,Settings.tankColors[1],tankwar));
+	tankwar.tankManager.add(new Tank('Player 3',200,Settings.tankColors[2],tankwar));
+	tankwar.tankManager.add(new Tank('Player 4',200,Settings.tankColors[3],tankwar));
+	tankwar.tankManager.add(new Tank('Player 5',200,Settings.tankColors[4],tankwar));
+	tankwar.tankManager.add(new Tank('Player 6',200,Settings.tankColors[5],tankwar));
+	tankwar.tankManager.add(new Tank('Player 7',200,Settings.tankColors[6],tankwar));
+	tankwar.tankManager.add(new Tank('Player 8',200,Settings.tankColors[7],tankwar));
+	
+	for(var i=0; i<tankwar.tankManager.tanks.length; i++) {
+		var tr = document.createElement('tr');
+		tr.tank = tankwar.tankManager.tanks[i];
+		var td = document.createElement('td');
+		var content = document.createElement('canvas');
+		content.width = 20; content.height = 20;
+		content.style.backgroundColor = 'rgb('+Settings.skyColor.join(',')+')';
+		tankwar.tankManager.tanks[i].x=9;
+		tankwar.tankManager.tanks[i].y=-15;
+		tankwar.tankManager.tanks[i].draw(content.getContext('2d'));
+		td.appendChild(content); tr.appendChild(td);
+
+		td = document.createElement('td');
+		content = document.createElement('input');
+		content.type = 'text';
+		content.value = tr.tank.name;
+		content.onchange = function() { this.parentNode.parentNode.tank.name = this.value; }
+		td.appendChild(content); tr.appendChild(td);
+
+		td = document.createElement('td');
+		content = document.createElement('input');
+		content.type = 'number';
+		content.value = tr.tank.maxHitpoints; content.min = 1;
+		content.onchange = function() { this.parentNode.parentNode.tank.maxHitpoints = this.value; }
+		td.appendChild(content); tr.appendChild(td);
+
+		td = document.createElement('td');
+		content = document.createElement('input');
+		content.type = 'number';
+		content.value = 5000;
+		content.onchange = function() { this.parentNode.parentNode.tank.money = this.value; }
+		td.appendChild(content); tr.appendChild(td);
+
+		document.getElementById('setup_tanks').appendChild(tr);
+	}
 });
+
+
+document.getElementById('setup_start').onclick = function() {
+	var setup = document.getElementById('tankwar_setup');
+	setup.parentNode.removeChild(setup);
+	document.getElementById('tankwar').style.display = 'block';
+	tankwar.start();
+}
+
+
 
 </script>
 </body></html>
