@@ -1,0 +1,163 @@
+<!doctype html>
+<style>
+#spellList {
+	list-style: none;
+	column-count: 7;
+}
+</style>
+<script src="download2.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+<div id="status">No file selected</div>
+<input type="file" id="inpfile"> <input type="button" id="download" value="download!">
+<div id="heroselection" style="display:none">
+<input type="text" id="hero">
+<input type="button" id="get" value="get">
+<input type="button" id="set" value="set">
+<ul id="spellList">
+<li><input type="checkbox" id="perm0" /><input type="checkbox" id="temp0" /> Summon Boat</li>
+<li><input type="checkbox" id="perm1" /><input type="checkbox" id="temp1" /> Scuttle Boat</li>
+<li><input type="checkbox" id="perm2" /><input type="checkbox" id="temp2" /> Visions</li>
+<li><input type="checkbox" id="perm3" /><input type="checkbox" id="temp3" /> View Earth</li>
+<li><input type="checkbox" id="perm4" /><input type="checkbox" id="temp4" /> Disguise</li>
+<li><input type="checkbox" id="perm5" /><input type="checkbox" id="temp5" /> View Air</li>
+<li><input type="checkbox" id="perm6" /><input type="checkbox" id="temp6" /> Fly</li>
+<li><input type="checkbox" id="perm7" /><input type="checkbox" id="temp7" /> Water Walk</li>
+<li><input type="checkbox" id="perm8" /><input type="checkbox" id="temp8" /> Dimension Door</li>
+<li><input type="checkbox" id="perm9" /><input type="checkbox" id="temp9" /> Town Portal</li>
+<li><input type="checkbox" id="perm10" /><input type="checkbox" id="temp10" /> Quicksand</li>
+<li><input type="checkbox" id="perm11" /><input type="checkbox" id="temp11" /> Land Mine</li>
+<li><input type="checkbox" id="perm12" /><input type="checkbox" id="temp12" /> Force Field</li>
+<li><input type="checkbox" id="perm13" /><input type="checkbox" id="temp13" /> Fire Wall</li>
+<li><input type="checkbox" id="perm14" /><input type="checkbox" id="temp14" /> Earthquake</li>
+<li><input type="checkbox" id="perm15" /><input type="checkbox" id="temp15" /> Magic Arrow</li>
+<li><input type="checkbox" id="perm16" /><input type="checkbox" id="temp16" /> Ice Bolt</li>
+<li><input type="checkbox" id="perm17" /><input type="checkbox" id="temp17" /> Lightning Bolt</li>
+<li><input type="checkbox" id="perm18" /><input type="checkbox" id="temp18" /> Implosion</li>
+<li><input type="checkbox" id="perm19" /><input type="checkbox" id="temp19" /> Chain Lightning</li>
+<li><input type="checkbox" id="perm20" /><input type="checkbox" id="temp20" /> Frost Ring</li>
+<li><input type="checkbox" id="perm21" /><input type="checkbox" id="temp21" /> Fireball</li>
+<li><input type="checkbox" id="perm22" /><input type="checkbox" id="temp22" /> Inferno</li>
+<li><input type="checkbox" id="perm23" /><input type="checkbox" id="temp23" /> Meteor Shower</li>
+<li><input type="checkbox" id="perm24" /><input type="checkbox" id="temp24" /> Death Ripple</li>
+<li><input type="checkbox" id="perm25" /><input type="checkbox" id="temp25" /> Destroy Undead</li>
+<li><input type="checkbox" id="perm26" /><input type="checkbox" id="temp26" /> Armageddon</li>
+<li><input type="checkbox" id="perm27" /><input type="checkbox" id="temp27" /> Shield</li>
+<li><input type="checkbox" id="perm28" /><input type="checkbox" id="temp28" /> Air Shield</li>
+<li><input type="checkbox" id="perm29" /><input type="checkbox" id="temp29" /> Fire Shield</li>
+<li><input type="checkbox" id="perm30" /><input type="checkbox" id="temp30" /> Protection from Air</li>
+<li><input type="checkbox" id="perm31" /><input type="checkbox" id="temp31" /> Protection from Fire</li>
+<li><input type="checkbox" id="perm32" /><input type="checkbox" id="temp32" /> Protection from Water</li>
+<li><input type="checkbox" id="perm33" /><input type="checkbox" id="temp33" /> Protection from Earth</li>
+<li><input type="checkbox" id="perm34" /><input type="checkbox" id="temp34" /> Anti-Magic</li>
+<li><input type="checkbox" id="perm35" /><input type="checkbox" id="temp35" /> Dispel</li>
+<li><input type="checkbox" id="perm36" /><input type="checkbox" id="temp36" /> Magic Mirror</li>
+<li><input type="checkbox" id="perm37" /><input type="checkbox" id="temp37" /> Cure</li>
+<li><input type="checkbox" id="perm38" /><input type="checkbox" id="temp38" /> Resurrection</li>
+<li><input type="checkbox" id="perm39" /><input type="checkbox" id="temp39" /> Animate Dead</li>
+<li><input type="checkbox" id="perm40" /><input type="checkbox" id="temp40" /> Sacrifice</li>
+<li><input type="checkbox" id="perm41" /><input type="checkbox" id="temp41" /> Bless</li>
+<li><input type="checkbox" id="perm42" /><input type="checkbox" id="temp42" /> Curse</li>
+<li><input type="checkbox" id="perm43" /><input type="checkbox" id="temp43" /> Bloodlust</li>
+<li><input type="checkbox" id="perm44" /><input type="checkbox" id="temp44" /> Precision</li>
+<li><input type="checkbox" id="perm45" /><input type="checkbox" id="temp45" /> Weakness</li>
+<li><input type="checkbox" id="perm46" /><input type="checkbox" id="temp46" /> Stone Skin</li>
+<li><input type="checkbox" id="perm47" /><input type="checkbox" id="temp47" /> Disrupting Ray</li>
+<li><input type="checkbox" id="perm48" /><input type="checkbox" id="temp48" /> Prayer</li>
+<li><input type="checkbox" id="perm49" /><input type="checkbox" id="temp49" /> Mirth</li>
+<li><input type="checkbox" id="perm50" /><input type="checkbox" id="temp50" /> Sorrow</li>
+<li><input type="checkbox" id="perm51" /><input type="checkbox" id="temp51" /> Fortune</li>
+<li><input type="checkbox" id="perm52" /><input type="checkbox" id="temp52" /> Misfortune</li>
+<li><input type="checkbox" id="perm53" /><input type="checkbox" id="temp53" /> Haste</li>
+<li><input type="checkbox" id="perm54" /><input type="checkbox" id="temp54" /> Slow</li>
+<li><input type="checkbox" id="perm55" /><input type="checkbox" id="temp55" /> Slayer</li>
+<li><input type="checkbox" id="perm56" /><input type="checkbox" id="temp56" /> Frenzy</li>
+<li><input type="checkbox" id="perm57" /><input type="checkbox" id="temp57" /> Titan's Lightning Bolt</li>
+<li><input type="checkbox" id="perm58" /><input type="checkbox" id="temp58" /> Counterstrike</li>
+<li><input type="checkbox" id="perm59" /><input type="checkbox" id="temp59" /> Berserk</li>
+<li><input type="checkbox" id="perm60" /><input type="checkbox" id="temp60" /> Hypnotize</li>
+<li><input type="checkbox" id="perm61" /><input type="checkbox" id="temp61" /> Forgetfulness</li>
+<li><input type="checkbox" id="perm62" /><input type="checkbox" id="temp62" /> Blind</li>
+<li><input type="checkbox" id="perm63" /><input type="checkbox" id="temp63" /> Teleport</li>
+<li><input type="checkbox" id="perm64" /><input type="checkbox" id="temp64" /> Remove Obstacle</li>
+<li><input type="checkbox" id="perm65" /><input type="checkbox" id="temp65" /> Clone</li>
+<li><input type="checkbox" id="perm66" /><input type="checkbox" id="temp66" /> Fire Elemental</li>
+<li><input type="checkbox" id="perm67" /><input type="checkbox" id="temp67" /> Earth Elemental</li>
+<li><input type="checkbox" id="perm68" /><input type="checkbox" id="temp68" /> Water Elemental</li>
+<li><input type="checkbox" id="perm69" /><input type="checkbox" id="temp69" /> Air Elemental</li></ul>
+</div>
+<script>
+
+$(function() {
+
+
+	$('#inpfile').change(function(event) {
+		console.log(event.target.files[0])
+		var reader = new FileReader()
+		reader.onload = function(ev) {
+			var h3game = ev.target.result
+			if (h3game.substr(15,5) == 'H3SVG') {
+				window.h3game = h3game
+				$('#status').text('h3 game loaded successfully')
+				$('#heroselection').show()
+			} else {
+				window.h3game = ''
+				$('#status').text('NOT A H3 SAVE')
+				$('#heroselection').hide()
+			}
+		}
+		reader.readAsBinaryString(event.target.files[0])
+	})
+
+	$('#get').click(function(){
+		var hero = $('#hero').val()
+		var offset = h3game.indexOf('\0'+hero+'\0')
+		if (offset == -1) {
+			$('#status').text('hero "'+hero+'" not found !')
+			return
+		} else {
+			$('#status').text('found hero "'+hero+'" @ '+offset)
+		}
+		var spellOffset = offset + 68 + hero.length
+		var spellsPerm = h3game.substr(spellOffset, 70)
+		var spellsTemp = h3game.substr(spellOffset+70, 70)
+		console.log(escape(spellsPerm))
+		console.log(escape(spellsTemp))
+		for (var s=0; s<70; s++) {
+			$('#perm'+s).prop('checked', spellsPerm.charCodeAt(s) == 1);
+			$('#temp'+s).prop('checked', spellsTemp.charCodeAt(s) == 1);
+		}
+		$('#status').text('spells for "'+hero+'" @ '+offset+' loaded')
+	});
+	$('#set').click(function(){
+		var spellsPerm = ""
+		var spellsTemp = ""
+		for (var s=0; s<70; s++) {
+			spellsPerm += String.fromCharCode($('#perm'+s).prop('checked'))
+			spellsTemp += String.fromCharCode($('#temp'+s).prop('checked'))
+		}
+		console.log(escape(spellsPerm))
+		console.log(escape(spellsTemp))
+		
+		var hero = $('#hero').val()
+		var offset = h3game.indexOf('\0'+hero+'\0')
+		if (offset == -1) {
+			$('#status').text('hero "'+hero+'" not found !')
+			return
+		} else {
+			$('#status').text('found hero "'+hero+'" @ '+offset)
+		}
+		var spellOffset = offset + 68 + hero.length
+		var oldLen = h3game.length
+		h3game = h3game.substr(0, spellOffset) + spellsPerm + spellsTemp + h3game.substr(spellOffset+140)
+		var newLen = h3game.length
+
+
+		$('#status').text('spells for "'+hero+'" @ '+offset+' written - oldLen='+oldLen+' - newLen='+newLen)
+	});
+
+	$('#download').click(function(){
+		download(h3game, 'm.gm2', 'application/octet-stream')
+	});
+})
+
+</script>
