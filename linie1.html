@@ -1,0 +1,394 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Linie 1 Routengenerator</title>
+<style type="text/css">
+html {
+	font-family: sans-serif;
+	text-size-adjust: none;
+}
+body {
+	max-width: 600px;
+	margin: 0 auto;
+}
+#init {
+	margin: 0 1em;
+	font-size: 130%;
+}
+#init h1 {
+	font-size: 130%;
+}
+#init select, #init button {
+	font-size: 100%;
+	width: 7em;
+}
+#display-select {
+	margin: 0 1em;
+	display: none;
+}
+#display-select .reset {
+	margin-top: 4em;
+}
+#display-select button {
+	font-size: 120%;
+	width: 10em;
+	margin: 1.5em auto;
+	display: block;
+}
+#display-next {
+	margin: 0 1em;
+	display: none;
+	font-size: 130%;
+	text-align: center;
+}
+#display-next button {
+	font-size: 100%;
+	width: 10em;
+	margin: 0 auto;
+	display: block;
+}
+#display {
+	display: none;
+}
+#display .meta {
+	margin: 0 3em;
+}
+#display #linie {
+	font-size: 250%;
+	font-weight: bold;
+	margin: 10px 0;
+}
+#display #stops {
+	margin: 10px 0;
+	font-size: 150%;
+	font-weight: bold;
+}
+#display .board #canvas {
+	width: 100%;
+}
+#display button {
+	font-size: 120%;
+	width: 10em;
+	margin: 1em auto;
+	display: block;
+}
+</style>
+<script type="text/javascript">
+"use strict";
+const WIDTH = 12;
+const HEIGHT = 12;
+const STATIONLETTERS = "ABCDEFGHIKLM";
+const STATION = [{x:8, y:1}, {x:11, y:4}, {x:12, y:8}, {x:9, y:11}, {x:5, y:12}, 
+                 {x:2, y:9}, {x:1, y:5},  {x:4, y:2},  {x:6, y:4},  {x:9, y:6},
+                 {x:7, y:9}, {x:4, y:7}]
+const PLAYERCOLORS = ["#ff0000", "#ccbb00", "#007700", "#000099", "#660066", "#000000"]
+const ENDSTATION = [[{x: 2.5, y: 0}, {x: 6.5, y: 13}], [{x: 6.5, y: 0}, {x: 10.5,y: 13 }],
+                    [{x: 10.5,y: 0}, {x: 2.5, y: 13}], [{x: 0, y: 6.5}, {x: 13, y: 2.5 }],
+                    [{x: 0,y: 10.5}, {x: 13, y: 6.5}], [{x: 0, y: 2.5}, {x: 13, y: 10.5}]]
+
+function shuffle(a) {
+	var j, x, i;
+	for (i = a.length - 1; i > 0; i--) {
+		j = Math.floor(Math.random() * (i + 1));
+		x = a[i];
+		a[i] = a[j];
+		a[j] = x;
+	}
+	return a;
+}
+
+function generateGame(linie, numStops, targetRating) {
+	const MAXITER = 1000;
+	let game = {linie: -1, stops: [], rating: Infinity}
+
+	for(let iter=0; iter<MAXITER; iter++) {
+		let stops = shuffle([...STATION.keys()]).slice(0,numStops);
+		let rating = 0;
+
+		function* permute(way) {
+			let length = way.length,
+				c = Array(length).fill(0),
+				i = 1, k, p;
+
+			yield way.slice();
+			while (i < length) {
+				if (c[i] < i) {
+					k = i % 2 && c[i];
+					p = way[i];
+					way[i] = way[k];
+					way[k] = p;
+					++c[i];
+					i = 1;
+					yield way.slice();
+				} else {
+					c[i] = 0;
+					++i;
+				}
+			}
+		}
+
+		function dist(p1, p2) {
+			return Math.sqrt((p1.x-p2.x)*(p1.x-p2.x) + (p1.y-p2.y)*(p1.y-p2.y));
+		}
+
+		let best = null, bestlen = Infinity;
+		for (let order of permute(stops)) {
+			let len = dist(ENDSTATION[linie-1][0], STATION[order[0]]);
+			for (let i=0; i<order.length-1; i++)
+				len += dist(STATION[order[i]], STATION[order[i+1]]);
+			len += dist(STATION[order[order.length-1]], ENDSTATION[linie-1][1]);
+			if (len < bestlen) {
+				bestlen = len;
+				best = order;
+			}
+		}
+		rating = bestlen;
+	
+		if (Math.abs(rating-targetRating) < Math.abs(game.rating-targetRating)) {
+			game.rating = rating;
+			game.stops = best;
+			game.linie = linie;
+		}
+		if (Math.abs(game.rating-targetRating) < 0.5) {
+			break;
+		}
+	}
+	return game;
+}
+
+</script>
+</head>
+<body>
+<div id="init">
+<h1>Linie 1 Generator</h1>
+<p>
+<label for="playercount">Spieler:</label>
+<select id="playercount">
+<option>2</option>
+<option selected>3</option>
+<option>4</option>
+<option>5</option>
+<option>6</option>
+</select>
+</p>
+<p>
+<label for="stopcount">Stops:</label>
+<select id="stopcount">
+<option>2</option>
+<option>3</option>
+<option>4</option>
+<option selected>5</option>
+<option>6</option>
+</select>
+</p>
+<p>
+<label for="targetrating">Schwierigkeit:</label>
+<select id="targetrating">
+<option value="20">Sehr Leicht</option>
+<option value="22">Leicht</option>
+<option value="25" selected>Normal</option>
+<option value="28">Eher Schwer</option>
+<option value="32">Schwer</option>
+<option value="35">Sehr Schwer</option>
+</select>
+</p>
+<p>
+<button id="generate">Und Los!</button>
+</p>
+</div>
+<div id="display-select">
+<h1>Linie 1</h1>
+<h2>Haltestellen anzeigen:</h2>
+<div id="playerselect">
+</div>
+<h2 class="reset">Neues Spiel</h2>
+<button id="newgame">Alles zurück!</button>
+</div>
+<div id="display-next">
+<p>Das Gerät an <strong>Spieler <span id="nextplayer">1</span></strong> weitergeben ...</p>
+<button id="shownext">Ich hab's!</button>
+</div>
+<div id="display">
+<div class="meta">
+<p id="linie">Linie X</p>
+<p id="stops">...</p>
+<p id="rating">...</p>
+</div>
+<div class="board"><canvas id="canvas" width="600" height="600"></canvas></div>
+<button id="displayfinish">OK, gesehen!</button>
+</div>
+<script type="text/javascript">
+"use strict";
+
+function station(x,y) {
+	for (let l=0; l<STATION.length; l++) {
+		if (STATION[l].x == x && STATION[l].y == y) {
+			return STATIONLETTERS.charAt(l);
+		}
+	}
+	return null;
+}
+
+function displayRoute(game, onfinish) {
+	const c = document.getElementById("canvas");
+	const CW = c.width, CH = c.height;
+
+	let linie = game.linie;
+	let stops = game.stops;
+	let rating = game.rating;
+	
+	let ctx = c.getContext("2d");
+	let CELL = CW / (WIDTH+2);
+	ctx.beginPath();
+	ctx.rect(0, 0, CW, CH);
+	ctx.fillStyle = "white";
+	ctx.strokeStyle = "transparent";
+	ctx.fill();
+
+	for(let x=1; x<=WIDTH; x++) {
+		for(let y=1; y<=HEIGHT; y++) {
+			let letter = station(x,y);
+			if (letter == null) {
+				ctx.beginPath();
+				ctx.rect(x*CELL, y*CELL, CELL-1, CELL-1);
+				ctx.fillStyle = "#ccc";
+				ctx.fill();
+			} else {
+				ctx.beginPath();
+				ctx.rect(x*CELL, y*CELL, CELL-1, CELL-1);
+				ctx.fillStyle = "#eedd00";
+				ctx.fill();
+				ctx.fillStyle = "#008800";
+				ctx.font = "30px Arial";
+				ctx.textAlign = "center";
+				ctx.textBaseline = "middle";
+				ctx.fillText(letter, (x+0.5)*CELL, (y+0.5)*CELL);
+			}
+		}
+	}
+
+	for(let p=0; p<ENDSTATION.length; p++) {
+		for(let s of ENDSTATION[p]) {
+			ctx.beginPath();
+			if (s.x == 0)
+				ctx.arc(CELL, (s.y+0.5)*CELL, CELL/2, Math.PI*0.5, Math.PI*1.5);
+			if (s.x == WIDTH+1)
+				ctx.arc(s.x*CELL,(s.y+0.5)*CELL, CELL/2, Math.PI*1.5, Math.PI*0.5);
+			if (s.y == 0)
+				ctx.arc((s.x+0.5)*CELL, CELL, CELL/2, Math.PI, 2*Math.PI);
+			if (s.y == HEIGHT+1)
+				ctx.arc((s.x+0.5)*CELL, s.y*CELL, CELL/2, 0, Math.PI);
+			ctx.strokeStyle = "black";
+			ctx.lineWidth = 2;
+			ctx.stroke();
+			ctx.font = "35px Arial";
+			ctx.textAlign = "center";
+			ctx.textBaseline = "middle";
+			ctx.fillStyle = PLAYERCOLORS[p];
+			if (s.x == 0 || s.x == WIDTH+1)
+				ctx.fillText(p+1, (s.x+0.5)*CELL, (s.y-0.3)*CELL);
+			if (s.y == 0 || s.y == HEIGHT+1)
+				ctx.fillText(p+1, (s.x-0.3)*CELL, (s.y+0.5)*CELL);
+		}
+	}
+
+	ctx.beginPath();
+	let st = ENDSTATION[linie-1][0];
+	ctx.moveTo((st.x+0.5)*CELL, (st.y+0.5)*CELL);
+	for (let s of stops) {
+		st = STATION[s];
+		ctx.lineTo((st.x+0.5)*CELL, (st.y+0.5)*CELL);
+	}
+	st = ENDSTATION[linie-1][1];
+	ctx.lineTo((st.x+0.5)*CELL, (st.y+0.5)*CELL);
+	ctx.strokeStyle = "black";
+	ctx.lineWidth = 4;
+	ctx.setLineDash([5, 5]);
+	ctx.stroke();
+	for (let s of stops) {
+		st = STATION[s];
+		ctx.beginPath();
+		ctx.rect(st.x*CELL, st.y*CELL, CELL-1, CELL-1);
+		ctx.strokeStyle = "black";
+		ctx.lineWidth = 3;
+		ctx.setLineDash([]);
+		ctx.stroke();
+	}
+
+	document.getElementById("linie").innerText = "Linie "+linie;
+	document.getElementById("linie").style.color = PLAYERCOLORS[linie-1];
+	document.getElementById("stops").innerText = stops.map(s => STATIONLETTERS.charAt(s)).join(' - ');
+	document.getElementById("rating").innerText = "Rating: " + rating.toFixed(1);
+	document.getElementById("init").style.display = "none";
+	document.getElementById("display-select").style.display = "none";
+	document.getElementById("display-next").style.display = "none";
+	document.getElementById("display").style.display = "block";
+	document.getElementById("displayfinish").onclick = _ => onfinish();
+}
+
+function displaySelectScreen() {
+	let playerselect = document.getElementById("playerselect");
+	playerselect.innerHTML = "";
+	for(let p=0; p<games.length; p++) {
+		let button = document.createElement("button");
+		button.innerText = "Spieler "+(p+1);
+		button.onclick = _ => displayPlayerConfirmScreen(p, () => displaySelectScreen());
+		playerselect.appendChild(button);
+	}
+	document.getElementById("init").style.display = "none";
+	document.getElementById("display-select").style.display = "block";
+	document.getElementById("display-next").style.display = "none";
+	document.getElementById("display").style.display = "none";
+	document.getElementById("newgame").onclick = _ => reset();
+}
+
+function displayPlayerConfirmScreen(player, onfinish) {
+	document.getElementById("nextplayer").innerText = player+1;
+	document.getElementById("init").style.display = "none";
+	document.getElementById("display-select").style.display = "none";
+	document.getElementById("display-next").style.display = "block";
+	document.getElementById("display").style.display = "none";
+	document.getElementById("shownext").onclick = _ => displayRoute(games[player], onfinish);
+}
+
+function displayNextScreen(nextplayer) {
+	if (nextplayer >= games.length) {
+		displaySelectScreen();
+		return;
+	}
+	displayPlayerConfirmScreen(nextplayer, () => displayNextScreen(nextplayer+1));
+}
+
+let games = [];
+
+function reset() {
+	if(!confirm("Wirklich resetten?")) {
+		return;
+	}
+	document.getElementById("init").style.display = "block";
+	document.getElementById("display-select").style.display = "none";
+	document.getElementById("display-next").style.display = "none";
+	document.getElementById("display").style.display = "none";
+	games = [];
+}
+
+function start() {
+	games = [];
+	let numStops = parseInt(document.getElementById("stopcount").value);
+	let numPlayers = parseInt(document.getElementById("playercount").value);
+	let targetRating = parseInt(document.getElementById("targetrating").value) + (Math.random()-0.5)*3;
+	let linien = shuffle([1,2,3,4,5,6]).slice(0, numPlayers);
+	for (let linie of linien) {
+		let game = generateGame(linie, numStops, targetRating);
+		games.push(game);
+	}
+	displayNextScreen(0);
+	//displayRoute(games[0]);
+}
+document.getElementById("generate").onclick = start;
+
+</script>
+</body>
+</html>
