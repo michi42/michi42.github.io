@@ -372,6 +372,7 @@ function reset() {
 	document.getElementById("display-next").style.display = "none";
 	document.getElementById("display").style.display = "none";
 	games = [];
+	window.onbeforeunload = null;
 }
 
 function start() {
@@ -384,15 +385,11 @@ function start() {
 		let game = generateGame(linie, numStops, targetRating);
 		games.push(game);
 	}
+	window.onbeforeunload = e => "Das aktuelle Spiel wirklich abbrechen?";
 	displayNextScreen(0);
 	//displayRoute(games[0]);
 }
 document.getElementById("generate").onclick = start;
-window.onbeforeunload = function(e) {
-	if (games.length > 0) {
-		return "Das aktuelle Spiel wirklich abbrechen?";
-	}
-}
 </script>
 </body>
 </html>
