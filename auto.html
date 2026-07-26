@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Autonummerngleichungslöser</title>
+<style>
+:root{
+  --paper:#edf2f4;
+  --grid:#dbe6ec;
+  --grid-strong:#c6d9e2;
+  --ink:#16242f;
+  --muted:#6e828e;
+  --op:#6b2fe0;
+  --eq:#0e8f6f;
+  --none:#b3453e;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--paper);
+  background-image:
+    repeating-linear-gradient(to right, var(--grid-strong) 0 1px, transparent 1px 110px),
+    repeating-linear-gradient(to bottom, var(--grid-strong) 0 1px, transparent 1px 110px),
+    repeating-linear-gradient(to right, var(--grid) 0 1px, transparent 1px 22px),
+    repeating-linear-gradient(to bottom, var(--grid) 0 1px, transparent 1px 22px);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:16px;
+  line-height:1.55;
+  padding:clamp(18px,4vw,56px) clamp(14px,4vw,32px) 64px;
+}
+main{max-width:730px;margin:0 auto}
+.eyebrow{
+  font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 10px;
+}
+h1{
+  font-family:var(--mono);font-size:clamp(26px,5.4vw,40px);line-height:1.05;
+  letter-spacing:-.02em;margin:0 0 14px;font-weight:700;
+}
+h1 .sym{color:var(--op)}
+.rules{margin:0 0 28px;max-width:56ch;color:#31424e}
+.rules code{font-family:var(--mono);background:#fff;border:1px solid var(--grid-strong);
+  border-radius:3px;padding:0 4px}
+
+/* ---- input ---- */
+.panel{background:#fff;border:1px solid var(--grid-strong);border-radius:2px;
+  box-shadow:0 1px 0 rgba(22,36,47,.06);padding:clamp(14px,3vw,22px)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch}
+input[type=text]{
+  flex:1 1 220px;min-width:0;font-family:var(--mono);font-size:clamp(20px,4.4vw,28px);
+  letter-spacing:.14em;padding:10px 12px;color:var(--ink);
+  background:var(--paper);border:1px solid var(--grid-strong);border-radius:2px;
+}
+input[type=text]:focus-visible,button:focus-visible,summary:focus-visible{
+  outline:2px solid var(--op);outline-offset:2px}
+button{
+  font-family:var(--sans);font-size:15px;font-weight:600;padding:10px 18px;cursor:pointer;
+  border:1px solid var(--ink);border-radius:2px;background:var(--ink);color:#fff;
+}
+button.ghost{background:transparent;color:var(--ink)}
+button:hover{filter:brightness(1.15)}
+button:disabled{opacity:.45;cursor:progress}
+.opts{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;
+  font-size:13px;color:var(--muted)}
+.opts label{display:flex;gap:6px;align-items:center;cursor:pointer}
+.chips{margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:baseline}
+.chips b{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);font-weight:400}
+.chip{font-family:var(--mono);font-size:13px;background:var(--paper);color:var(--ink);
+  border:1px solid var(--grid-strong);border-radius:2px;padding:3px 8px;cursor:pointer}
+.chip:hover{border-color:var(--op);color:var(--op)}
+
+/* ---- result ---- */
+#result{margin-top:22px}
+.eqline{
+  font-family:var(--mono);font-weight:600;
+  font-size:clamp(19px,4.6vw,31px);letter-spacing:.02em;
+  word-break:break-word;margin:0;
+}
+.eqline .d{color:var(--ink)}
+.eqline .ins{color:var(--op)}
+.eqline .par{color:#a58cf0}
+.eqline .eqs{color:var(--eq);padding:0 .18em}
+.anim .ins,.anim .par,.anim .eqs{animation:drop .34s cubic-bezier(.2,.9,.3,1.2) both}
+@keyframes drop{from{opacity:0;transform:translateY(-.42em) scale(.7)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.anim .ins,.anim .par,.anim .eqs{animation:none}}
+.meta{font-family:var(--mono);font-size:12px;letter-spacing:.06em;color:var(--muted);
+  margin:12px 0 0;text-transform:uppercase}
+.nores{color:var(--none);font-weight:600}
+.nores small{display:block;font-weight:400;color:var(--muted);font-size:13px;
+  text-transform:none;letter-spacing:0;margin-top:6px;font-family:var(--sans)}
+ol.splits{list-style:none;margin:16px 0 0;padding:0;border-top:1px solid var(--grid-strong)}
+ol.splits li{display:flex;gap:14px;align-items:baseline;padding:9px 0;
+  border-bottom:1px solid var(--grid-strong);font-family:var(--mono);font-size:14px}
+ol.splits .pos{color:var(--muted);font-size:11px;letter-spacing:.1em;flex:0 0 4.4em}
+ol.splits .miss{color:var(--none)}
+
+/* ---- facts ---- */
+details{margin-top:30px}
+summary{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--muted);cursor:pointer}
+table{border-collapse:collapse;margin-top:14px;font-family:var(--mono);font-size:13px}
+th,td{text-align:right;padding:4px 16px 4px 0;border-bottom:1px solid var(--grid-strong)}
+th{color:var(--muted);font-weight:400;font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+td:first-child,th:first-child{text-align:left}
+tr.zero td{color:var(--eq);font-weight:600}
+details code{font-family:var(--mono)}
+details p{font-size:13px;color:var(--muted);max-width:60ch}
+</style>
+</head>
+<body>
+<main>
+  <p class="eyebrow">Ziffernrätsel</p>
+  <h1>Ziffernkette <span class="sym">→</span> Gleichung</h1>
+  <p class="rules">
+    Zwischen die Ziffern kommen <code>+</code> <code>−</code> <code>∗</code> <code>:</code>,
+    Klammern und genau ein <code>=</code>. Die Ziffern bleiben in ihrer Reihenfolge stehen;
+    benachbarte Ziffern dürfen zu mehrstelligen Zahlen zusammenwachsen.
+    Beispiel: <code>392451</code> → <code>(3∗9)+24=51</code>.
+  </p>
+
+  <div class="panel">
+    <div class="row">
+      <input id="num" type="text" inputmode="numeric" autocomplete="off" spellcheck="false"
+             value="392451" aria-label="Zahl">
+      <button id="go">Gleichung suchen</button>
+      <button id="rnd" class="ghost">Zufallszahl</button>
+    </div>
+    <div class="opts">
+      <label><input type="checkbox" id="intOnly"> nur ganzzahlige Zwischenergebnisse</label>
+      <label><input type="checkbox" id="noLead"> keine führenden Nullen in Blöcken</label>
+      <label><input type="checkbox" id="allSplits"> alle Positionen des <code>=</code></label>
+    </div>
+    <div class="chips">
+      <b>Proben</b>
+      <button class="chip" data-n="14720">14720</button>
+      <button class="chip" data-n="1098959">1098959</button>
+      <button class="chip" data-n="121987">121987</button>
+      <button class="chip" data-n="58980898">58980898</button>
+      <button class="chip" data-n="80098959">80098959</button>
+    </div>
+  </div>
+
+  <div id="result" aria-live="polite"></div>
+
+  <details>
+    <summary>Was über diese Aufgabe bekannt ist</summary>
+    <table>
+      <tr><th>Stellen</th><th>Zahlen</th><th>ohne Lösung</th><th>Anteil</th></tr>
+      <tr><td>1</td><td>9</td><td>9</td><td>100 %</td></tr>
+      <tr><td>2</td><td>90</td><td>81</td><td>90 %</td></tr>
+      <tr><td>3</td><td>900</td><td>725</td><td>81 %</td></tr>
+      <tr><td>4</td><td>9 000</td><td>4 718</td><td>52 %</td></tr>
+      <tr><td>5</td><td>90 000</td><td>11 853</td><td>13 %</td></tr>
+      <tr><td>6</td><td>900 000</td><td>3 526</td><td>0,39 %</td></tr>
+      <tr><td>7</td><td>9 000 000</td><td>167</td><td>0,0019 %</td></tr>
+      <tr class="zero"><td>8</td><td>90 000 000</td><td>0</td><td>0 %</td></tr>
+    </table>
+    <p>Aus einer vollständigen Suche über alle Zahlen dieser Längen. Einstellige Zahlen
+    haben gar keine Lücke für das <code>=</code>, zweistellige nur die neun Doppelziffern
+    <code>1=1</code> … <code>9=9</code>. Ab drei Stellen kippt es schnell: jede weitere
+    Ziffer bringt eine zusätzliche Schnittstelle und exponentiell mehr Ausdrücke, während
+    die zu treffenden Werte gleich bleiben. Die kleinste siebenstellige Zahl ohne Lösung
+    ist 1 098 959; ab acht Stellen tritt keine Ausnahme mehr auf.</p>
+    <p>Diese Seite durchsucht zuerst alle klammerfreien Ausdrücke und danach, falls nötig,
+    alle Klammerungen. Zähler und Nenner werden dabei auf 10¹² begrenzt.</p>
+  </details>
+</main>
+
+<script>
+"use strict";
+/* ---------------- exakte Bruchrechnung (Zähler/Nenner als ganze Zahlen) ---------- */
+const CAP = 1e12, SAFE = 9007199254740991;
+let INT_ONLY = false, NO_LEAD = false;
+
+function gcd(a,b){ a=a<0?-a:a; b=b<0?-b:b; while(b){ const t=a%b; a=b; b=t; } return a; }
+function mk(n,d){
+  if(d===0) return null;
+  if(d<0){ n=-n; d=-d; }
+  const g = gcd(n,d) || 1;
+  n/=g; d/=g;
+  if(n>CAP||n<-CAP||d>CAP) return null;
+  if(INT_ONLY && d!==1) return null;
+  return {n,d};
+}
+function mul(a,b){                       // exaktes Produkt oder NaN
+  if(a===0||b===0) return 0;
+  const r=a*b;
+  return (r>SAFE||r<-SAFE) ? NaN : r;
+}
+function apply(a,b,k){                   // k: 0=+ 1=- 2=* 3=:
+  let n,d;
+  const dd = mul(a.d,b.d);
+  if(dd!==dd) return null;
+  if(k===2){ n = mul(a.n,b.n); d = dd; }
+  else if(k===3){
+    if(b.n===0) return null;
+    n = mul(a.n,b.d); d = mul(a.d,b.n);
+  } else {
+    const p = mul(a.n,b.d), q = mul(b.n,a.d);
+    if(p!==p||q!==q) return null;
+    n = k===0 ? p+q : p-q; d = dd;
+  }
+  if(n!==n||d!==d||n>SAFE||n<-SAFE) return null;
+  return mk(n,d);
+}
+const key = r => r.n+"/"+r.d;
+const OPCH = ["+","−","∗",":"];
+
+/* ---------------- Phase 1: klammerfreie Ausdrücke (Punkt vor Strich) ------------- */
+/* Für einen Ziffernblock alle Werte, die ohne Klammern erreichbar sind.
+   Rückgabe: Map wertschlüssel -> {r, expr, ops}                                     */
+let bfCache = new Map();
+function bracketFree(s){
+  const hit = bfCache.get(s); if(hit) return hit;
+  const out = new Map(), gaps = s.length-1, total = Math.pow(5,gaps);
+  const nums=[], ops=[];
+  for(let mask=0; mask<total; mask++){
+    // Muster dekodieren: 0 = zusammenschreiben, 1..4 = Operator
+    nums.length=0; ops.length=0;
+    let chunk = s[0], m = mask, ok = true, expr = s[0], nops = 0;
+    for(let g=0; g<gaps; g++){
+      const c = m%5; m = (m/5)|0;
+      if(c===0){ chunk += s[g+1]; expr += s[g+1]; }
+      else{
+        if(NO_LEAD && chunk.length>1 && chunk[0]==="0"){ ok=false; break; }
+        nums.push(chunk); ops.push(c-1);
+        chunk = s[g+1]; expr += OPCH[c-1] + s[g+1]; nops++;
+      }
+    }
+    if(!ok) continue;
+    if(NO_LEAD && chunk.length>1 && chunk[0]==="0") continue;
+    nums.push(chunk);
+    const r = evalFlat(nums,ops);
+    if(!r) continue;
+    const k = key(r), prev = out.get(k);
+    if(!prev || nops < prev.ops) out.set(k,{r,expr,ops:nops});
+  }
+  if(bfCache.size>400) bfCache.clear();
+  bfCache.set(s,out);
+  return out;
+}
+function evalFlat(nums,ops){
+  const val=[], op=[];
+  for(let i=0;i<nums.length;i++){
+    const v = Number(nums[i]);
+    if(v>CAP) return null;
+    const cur = {n:v,d:1};
+    if(i>0){
+      const o = ops[i-1];
+      if(o===2||o===3){                     // Punktrechnung sofort
+        const left = val.pop();
+        const res = apply(left,cur,o);
+        if(!res) return null;
+        val.push(res); continue;
+      }
+      op.push(o);
+    }
+    val.push(cur);
+  }
+  let acc = val[0];
+  for(let i=0;i<op.length;i++){
+    acc = apply(acc,val[i+1],op[i]);
+    if(!acc) return null;
+  }
+  return acc;
+}
+
+/* ---------------- Phase 2: alle Klammerungen (DP über Teilstrings) --------------- */
+let dpS = "", dpMemo = null, dpCount = 0, ABORT = 900000;
+function dpSet(i,j){
+  const k = i*100+j, hit = dpMemo.get(k); if(hit) return hit;
+  const m = new Map();
+  if(!(NO_LEAD && j-i>1 && dpS[i]==="0")){
+    const v = Number(dpS.slice(i,j));
+    if(v<=CAP) m.set(v+"/1",{n:v,d:1,leaf:true});
+  }
+  for(let t=i+1;t<j;t++){
+    const A = dpSet(i,t), B = dpSet(t,j);
+    for(const a of A.values()) for(const b of B.values()){
+      for(let o=0;o<4;o++){
+        const r = apply(a,b,o);
+        if(!r) continue;
+        const kk = r.n+"/"+r.d;
+        if(m.has(kk)) continue;
+        m.set(kk,{n:r.n,d:r.d,op:o,t,ka:a.n+"/"+a.d,kb:b.n+"/"+b.d});
+      }
+    }
+  }
+  dpCount += m.size;
+  if(dpCount>ABORT) throw new Error("zu gross");
+  dpMemo.set(k,m);
+  return m;
+}
+function tree(i,j,k){
+  const rec = dpSet(i,j).get(k);
+  if(rec.leaf) return {txt:dpS.slice(i,j)};
+  return {op:rec.op, a:tree(i,rec.t,rec.ka), b:tree(rec.t,j,rec.kb)};
+}
+function render(node){                        // minimale Klammerung
+  if(node.txt) return {s:node.txt, p:9};
+  const p = node.op<2 ? 1 : 2;
+  const A = render(node.a), B = render(node.b);
+  const l = A.p<p ? "("+A.s+")" : A.s;
+  const rParen = B.p<p || (B.p===p && (node.op===1||node.op===3));
+  const r = rParen ? "("+B.s+")" : B.s;
+  return {s: l+OPCH[node.op]+r, p};
+}
+
+/* ---------------- Suche ---------------------------------------------------------- */
+function solveSplit(s,p){                     // ein Ergebnis für ein festes "="
+  const L = bracketFree(s.slice(0,p)), R = bracketFree(s.slice(p));
+  let best = null;
+  for(const [k,a] of L){
+    const b = R.get(k);
+    if(b && (!best || a.ops+b.ops < best.cost))
+      best = {left:a.expr, right:b.expr, cost:a.ops+b.ops, free:true};
+  }
+  if(best) return best;
+  const A = dpSet(0,p), B = dpSet(p,s.length);
+  const small = A.size<=B.size ? A : B, big = small===A ? B : A;
+  let cand = null, seen = 0;
+  for(const k of small.keys()){
+    if(!big.has(k)) continue;
+    const l = render(tree(0,p,k)).s, r = render(tree(p,s.length,k)).s;
+    const c = (l.match(/\(/g)||[]).length + (r.match(/\(/g)||[]).length;
+    if(!cand || c < cand.cost) cand = {left:l, right:r, cost:c, free:false};
+    if(++seen>400) break;
+  }
+  return cand;
+}
+function solve(s){
+  const n = s.length, t0 = performance.now();
+  dpS = s; dpMemo = new Map(); dpCount = 0; bfCache.clear();
+  const order = [];
+  for(let p=1;p<n;p++) order.push(p);
+  order.sort((x,y)=> Math.max(x,n-x)-Math.max(y,n-y) || x-y);
+  for(const p of order){
+    const r = solveSplit(s,p);
+    if(r){ r.p = p; r.ms = performance.now()-t0; return r; }
+  }
+  return {none:true, ms:performance.now()-t0};
+}
+function solveAll(s){
+  const n = s.length, out = [];
+  dpS = s; dpMemo = new Map(); dpCount = 0; bfCache.clear();
+  for(let p=1;p<n;p++){
+    let r = null;
+    try{ r = solveSplit(s,p); }catch(e){ r = null; }
+    out.push({p, r});
+  }
+  return out;
+}
+
+/* ---------------- Darstellung ---------------------------------------------------- */
+function paint(left,right){                   // Ziffern bleiben, Eingesetztes leuchtet
+  const s = left+"="+right;
+  let html = "", i = 0;
+  for(const ch of s){
+    let cls = "ins";
+    if(ch>="0"&&ch<="9") cls="d";
+    else if(ch==="("||ch===")") cls="par";
+    else if(ch==="=") cls="eqs";
+    const delay = cls==="d" ? "" : ` style="animation-delay:${(i++*28)}ms"`;
+    html += `<span class="${cls}"${delay}>${ch}</span>`;
+  }
+  return html;
+}
+const $ = id => document.getElementById(id);
+const res = $("result");
+
+function readOpts(){
+  INT_ONLY = $("intOnly").checked;
+  NO_LEAD  = $("noLead").checked;
+}
+function run(){
+  const raw = $("num").value.replace(/\D/g,"");
+  if(raw.length<2){ res.innerHTML = `<p class="meta nores">Mindestens zwei Ziffern eingeben.</p>`; return; }
+  if(raw.length>11){ res.innerHTML = `<p class="meta nores">Höchstens elf Ziffern.</p>`; return; }
+  $("num").value = raw;
+  readOpts();
+  const btn = $("go"); btn.disabled = true; btn.textContent = "Rechne …";
+  res.innerHTML = `<p class="meta">Suche läuft …</p>`;
+  setTimeout(()=>{
+    try{ show(raw); }
+    catch(e){ res.innerHTML = `<p class="meta nores">Suche abgebrochen — die Zahl ist zu lang für den Browser.</p>`; }
+    btn.disabled = false; btn.textContent = "Gleichung suchen";
+  },20);
+}
+function show(s){
+  if($("allSplits").checked){
+    const all = solveAll(s);
+    let html = `<ol class="splits">`;
+    for(const {p,r} of all){
+      html += `<li><span class="pos">= n. ${p}</span>` +
+        (r ? `<span>${paint(r.left,r.right)}</span>`
+           : `<span class="miss">keine Lösung an dieser Position</span>`) + `</li>`;
+    }
+    res.innerHTML = html + `</ol>`;
+    return;
+  }
+  const r = solve(s);
+  if(r.none){
+    res.innerHTML =
+      `<p class="eqline nores">keine Lösung</p>
+       <p class="meta nores">Alle ${s.length-1} Positionen des = geprüft
+       <small>Vollständig durchsucht: jede Klammerung, jede Zerlegung in mehrstellige Blöcke.
+       Diese Zahl gehört zu den seltenen Ausnahmen.</small></p>`;
+    return;
+  }
+  res.innerHTML =
+    `<p class="eqline anim">${paint(r.left,r.right)}</p>
+     <p class="meta">= nach Stelle ${r.p} · ${r.free?"ohne Klammern":"mit Klammern"} · ${r.ms.toFixed(0)} ms</p>`;
+}
+
+$("go").addEventListener("click",run);
+$("num").addEventListener("keydown",e=>{ if(e.key==="Enter") run(); });
+$("rnd").addEventListener("click",()=>{
+  const len = Math.max(4, Math.min(9, ($("num").value.replace(/\D/g,"").length||7)));
+  let s = String(1+Math.floor(Math.random()*9));
+  for(let i=1;i<len;i++) s += Math.floor(Math.random()*10);
+  $("num").value = s; run();
+});
+document.querySelectorAll(".chip").forEach(c=>
+  c.addEventListener("click",()=>{ $("num").value = c.dataset.n; run(); }));
+["intOnly","noLead","allSplits"].forEach(id=>$(id).addEventListener("change",run));
+run();
+</script>
+</body>
+</html>
