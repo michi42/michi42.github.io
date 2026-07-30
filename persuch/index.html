@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Personensuche</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <h1>Personensuche</h1>
+  <nav id="tabs">
+    <button data-tab="spiel" class="aktiv">Spiel</button>
+    <button data-tab="datenbank">Datenbank</button>
+  </nav>
+</header>
+
+<main>
+
+<!-- ================= SPIEL ================= -->
+<section id="tab-spiel" class="tab aktiv">
+
+  <div id="start" class="karte">
+    <div id="ladefehler" hidden>
+      <p class="meldung fehler">Die Datenbank kann nicht geladen werden.</p>
+      <p class="klein">Im Browserspeicher liegen auch keine brauchbaren Daten.
+         Bitte lade eine JSON-Datei hoch.</p>
+      <button id="btn-ladefehler-import">JSON hochladen…</button>
+    </div>
+    <div id="start-normal">
+      <p>Denk an eine Person. Ich stelle dir bis zu 20 Fragen und wähle jeweils
+         aus neun Eigenschaftsgruppen – klick diejenige an, die du mit deiner
+         Person am ehesten assoziierst.</p>
+      <p class="klein"><span id="start-info"></span></p>
+      <button id="btn-start" class="gross">Los geht's</button>
+    </div>
+  </div>
+
+  <div id="spiel" hidden>
+    <div class="statuszeile">
+      <span id="runde"></span>
+      <button id="btn-abbruch" class="link">Abbrechen</button>
+    </div>
+    <div id="protokoll" class="protokoll" aria-live="polite"></div>
+    <div id="frage" class="karte" hidden>
+      <h2>Was passt am ehesten?</h2>
+      <div id="optionen" class="optionen"></div>
+    </div>
+    <div id="dialog" class="karte dialog" hidden></div>
+  </div>
+
+</section>
+
+<!-- ================= DATENBANK ================= -->
+<section id="tab-datenbank" class="tab">
+  <div class="karte">
+    <div class="unterreiter" id="db-tabs">
+      <button data-db="personen" class="aktiv">Personen</button>
+      <button data-db="eigenschaften">Eigenschaften</button>
+      <button data-db="daten">Up-/Download</button>
+    </div>
+
+    <p id="db-meldung" class="meldung" hidden></p>
+
+    <div id="db-personen" class="db-panel">
+      <div id="personen-liste">
+        <input type="search" id="filter-personen" placeholder="Name filtern…">
+        <p class="klein">Zu jeder Person die höchst- und tiefstbewertete Eigenschaft.
+           Klicken öffnet die Detailansicht mit Umbenennen, Löschen und den
+           Assoziationen.</p>
+        <div id="liste-personen"></div>
+      </div>
+      <div id="person-detail" hidden></div>
+    </div>
+
+    <div id="db-eigenschaften" class="db-panel" hidden>
+      <div id="eigenschaften-liste">
+        <input type="search" id="filter-eigenschaften" placeholder="Eigenschaft filtern…">
+        <div class="neu-reihe">
+          <input type="text" id="eig-neu-name" placeholder="Neue Eigenschaft…">
+          <button id="btn-eig-neu">Hinzufügen</button>
+        </div>
+        <p class="klein">Eine neue Eigenschaft startet bei allen Personen auf 0.
+           Klicken öffnet die Detailansicht mit Umbenennen, Löschen und den
+           20 stärksten Assoziationen.</p>
+        <div id="liste-eigenschaften"></div>
+      </div>
+      <div id="eig-detail" hidden></div>
+    </div>
+
+    <div id="db-daten" class="db-panel" hidden>
+      <p id="speicher-info" class="klein"></p>
+      <p class="klein">Ausgangspunkt ist <code>data.json</code> neben dieser Seite.
+         Eine heruntergeladene Datei kann sie ersetzen: umbenennen in
+         <code>data.json</code>, danebenlegen, „Auf Ausgangsdaten zurücksetzen".</p>
+      <div class="knopfreihe">
+        <button id="btn-export">Als JSON herunterladen</button>
+        <button id="btn-import">JSON hochladen…</button>
+        <button id="btn-reset" class="warnung">Auf Ausgangsdaten zurücksetzen</button>
+      </div>
+      <input type="file" id="datei" accept=".json,application/json" hidden>
+      <p id="daten-meldung" class="meldung" hidden></p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<script src="titel.js"></script>
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,232 @@
+:root {
+  --bg: #11131a;
+  --karte: #1a1e29;
+  --karte2: #232838;
+  --rand: #2f3547;
+  --text: #dfe3ee;
+  --gedaempft: #8b93a8;
+  --akzent: #6fc3a0;
+  --akzent2: #e0b25c;
+  --warn: #e07b6a;
+  --radius: 10px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f2f1ec;
+    --karte: #ffffff;
+    --karte2: #f7f6f2;
+    --rand: #dcdad2;
+    --text: #23262e;
+    --gedaempft: #6d7280;
+    --akzent: #2c7a5b;
+    --akzent2: #9a6c12;
+    --warn: #b6462f;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+header {
+  padding: 1.4rem 1.2rem 0;
+  max-width: 60rem;
+  margin: 0 auto;
+}
+h1 {
+  margin: 0;
+  font-size: 1.7rem;
+  letter-spacing: .04em;
+}
+h2 { font-size: 1.05rem; margin: 0 0 .6rem; }
+
+code {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: .88em;
+  background: var(--karte2);
+  padding: .05em .35em;
+  border-radius: 4px;
+}
+
+nav#tabs { display: flex; gap: .4rem; border-bottom: 1px solid var(--rand); }
+nav#tabs button, .unterreiter button {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--gedaempft);
+  padding: .5rem .8rem;
+  font: inherit;
+  font-size: .95rem;
+  cursor: pointer;
+}
+nav#tabs button.aktiv, .unterreiter button.aktiv {
+  color: var(--text);
+  border-bottom-color: var(--akzent);
+}
+
+main { max-width: 60rem; margin: 0 auto; padding: 1.2rem; }
+.tab { display: none; }
+.tab.aktiv { display: block; }
+
+.karte {
+  background: var(--karte);
+  border: 1px solid var(--rand);
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem;
+  margin-bottom: 1rem;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  background: var(--karte2);
+  color: var(--text);
+  border: 1px solid var(--rand);
+  border-radius: 7px;
+  padding: .45rem .9rem;
+}
+button:hover { border-color: var(--akzent); }
+button.gross { padding: .6rem 1.4rem; font-size: 1.05rem; }
+button.warnung { color: var(--warn); }
+button.link {
+  background: none; border: none; color: var(--gedaempft);
+  text-decoration: underline; padding: 0; font-size: .85rem;
+}
+button.link:hover { color: var(--text); }
+
+input[type=text], input[type=search], input[type=number], select {
+  font: inherit;
+  background: var(--karte2);
+  color: var(--text);
+  border: 1px solid var(--rand);
+  border-radius: 7px;
+  padding: .42rem .6rem;
+  max-width: 100%;
+}
+input[type=search] { width: 100%; margin-bottom: .6rem; }
+
+.klein { font-size: .85rem; color: var(--gedaempft); }
+
+/* --- Spiel --- */
+.statuszeile {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: .6rem; font-size: .85rem; color: var(--gedaempft);
+}
+
+.protokoll { margin-bottom: 1rem; }
+.protokoll p {
+  margin: .2rem 0;
+  padding-left: .8rem;
+  border-left: 2px solid var(--rand);
+}
+.protokoll p.wahl { color: var(--gedaempft); font-style: italic; border-left-color: transparent; }
+.protokoll p.spur { color: var(--akzent2); border-left-color: var(--akzent2); }
+.protokoll p.erfolg { color: var(--akzent); border-left-color: var(--akzent); font-weight: 600; }
+.protokoll p.warn { color: var(--warn); border-left-color: var(--warn); }
+.protokoll p.frage { font-weight: 600; border-left-color: var(--akzent); }
+
+.optionen { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: .5rem; }
+.optionen button {
+  text-align: left;
+  padding: .6rem .8rem;
+  background: var(--karte2);
+  line-height: 1.35;
+}
+.optionen button .nr {
+  display: inline-block; width: 1.4rem;
+  color: var(--gedaempft); font-variant-numeric: tabular-nums;
+}
+
+.dialog p:first-child { margin-top: 0; }
+.knopfreihe { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .7rem; }
+.kandidaten { display: flex; flex-direction: column; gap: .35rem; margin-top: .6rem; }
+.kandidaten button { text-align: left; }
+
+/* --- Datenbank --- */
+.unterreiter { display: flex; gap: .3rem; margin: -.3rem 0 .9rem; border-bottom: 1px solid var(--rand); }
+
+/* Nur waagrecht scrollend – in der Hoehe waechst die Tabelle mit der Seite. */
+.tabelle-huelle {
+  overflow-x: auto;
+  border: 1px solid var(--rand);
+  border-radius: 7px;
+}
+table.tabelle {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .88rem;
+}
+.tabelle th, .tabelle td {
+  padding: .35rem .6rem;
+  text-align: left;
+  vertical-align: baseline;
+  border-bottom: 1px solid var(--rand);
+}
+.tabelle thead th {
+  font-size: .78rem;
+  font-weight: 600;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  color: var(--gedaempft);
+  background: var(--karte2);
+  white-space: nowrap;
+}
+.tabelle tbody tr:last-child td { border-bottom: none; }
+.tabelle tbody tr.klickbar { cursor: pointer; }
+.tabelle tbody tr.klickbar:hover { background: var(--karte2); }
+.tabelle .idx {
+  color: var(--gedaempft);
+  font-variant-numeric: tabular-nums;
+  width: 3.5rem;
+}
+.tabelle .plus { color: var(--akzent); }
+.tabelle .minus { color: var(--warn); }
+.tabelle .wertspalte { width: 6rem; }
+.tabelle .wertspalte input {
+  width: 100%;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  padding: .2rem .4rem;
+}
+
+/* Zellinhalt, der anklickbar und mit der Tastatur erreichbar ist. */
+.zellknopf {
+  background: none; border: none; border-radius: 0;
+  padding: 0; font: inherit; color: inherit;
+  text-align: left; cursor: pointer;
+}
+.zellknopf:hover { color: var(--akzent); text-decoration: underline; }
+.zellknopf:focus-visible { outline: 2px solid var(--akzent); outline-offset: 2px; }
+
+/* --- Detailansicht mit Bearbeitung --- */
+.detail-nav { margin-bottom: .7rem; }
+.detail-kopf { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: .8rem; }
+.detail-kopf .namensfeld { flex: 1 1 16rem; font-size: 1.05rem; }
+
+.neu-reihe { display: flex; gap: .5rem; margin-bottom: .6rem; }
+.neu-reihe input { flex: 1 1 auto; }
+
+.verweis { cursor: pointer; }
+.verweis:hover { color: var(--akzent); text-decoration: underline; }
+
+.rangliste { margin: 0; padding: 0; list-style: none; }
+.rangliste li {
+  display: grid; grid-template-columns: 2.2rem 1fr 3.5rem;
+  padding: .2rem 0; border-bottom: 1px solid var(--rand); font-size: .9rem;
+}
+.rangliste li:last-child { border-bottom: none; }
+.rangliste .wert { text-align: right; font-variant-numeric: tabular-nums; color: var(--akzent); }
+.rangliste li.letzter .wert { color: var(--warn); }
+
+
+.meldung {
+  margin: .7rem 0 0; padding: .5rem .7rem; border-radius: 7px;
+  background: var(--karte2); border-left: 3px solid var(--akzent); font-size: .9rem;
+}
+.meldung.fehler { border-left-color: var(--warn); color: var(--warn); }
