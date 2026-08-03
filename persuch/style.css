@@ -127,6 +127,7 @@ input[type=search] { width: 100%; margin-bottom: .6rem; }
 }
 .protokoll p.wahl { color: var(--gedaempft); font-style: italic; border-left-color: transparent; }
 .protokoll p.spur { color: var(--akzent2); border-left-color: var(--akzent2); }
+.protokoll strong { font-weight: 600; }
 .protokoll p.erfolg { color: var(--akzent); border-left-color: var(--akzent); font-weight: 600; }
 .protokoll p.warn { color: var(--warn); border-left-color: var(--warn); }
 .protokoll p.frage { font-weight: 600; border-left-color: var(--akzent); }

@@ -157,8 +157,32 @@ let scrollNoetig = false;
 
 function protokollAnhaengen(eintraege) {
   const p = $('protokoll');
-  eintraege.forEach((e) => p.appendChild(el('p', e.kind, e.text)));
+  eintraege.forEach((e) => p.appendChild(protokollZeile(e)));
   scrollNoetig = true;
+}
+
+function protokollZeile(e) {
+  const z = el('p', e.kind);
+  fettSetzen(z, e.text);
+  return z;
+}
+
+/**
+ * Minimaler Markdown-Ersatz: **so markierter** Text wird fett, alles andere
+ * bleibt wörtlich stehen. Unpaarige Sternchen sind gewöhnlicher Text.
+ */
+const FETT = /\*\*(.+?)\*\*/g;
+
+function fettSetzen(ziel, text) {
+  if (!text.includes('**')) { ziel.textContent = text; return; }
+  FETT.lastIndex = 0;
+  let pos = 0, m;
+  while ((m = FETT.exec(text)) !== null) {
+    if (m.index > pos) ziel.appendChild(document.createTextNode(text.slice(pos, m.index)));
+    ziel.appendChild(el('strong', null, m[1]));
+    pos = m.index + m[0].length;
+  }
+  if (pos < text.length) ziel.appendChild(document.createTextNode(text.slice(pos)));
 }
 
 function zeichnen() {

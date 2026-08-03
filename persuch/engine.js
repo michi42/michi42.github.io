@@ -1019,6 +1019,7 @@ class Game {
     this.frageStellen();
   }
 
+  /** Text darf **so** Hervorhebungen enthalten; die Ausgabe setzt sie fett. */
   say(text, kind) { this.log.push({ text, kind: kind || 'sys' }); }
 
   /* --- Fragegenerierung (Zeilen 131-214) -------------------------- */
@@ -1123,28 +1124,29 @@ class Game {
         const res = spurName(db.names[siegn], g.lang);
         g.lang = res.lang;
         g.nName = res.name;
-        this.say('Ich habe die Spur aufgenommen. Ich sage nur: ' + g.nName, 'spur');
+        this.say('Ich habe die Spur aufgenommen. Ich sage nur: **' + g.nName + '**', 'spur');
         g.verdacht = 1;
         g.vdif = sieg - r2;
       }
       if (siegn === g.vern) {
         if (g.vdif2 === 1) {
-          this.say('Das war wohl ein Tip auf ' + g.nName + '.');
+          this.say('Das war wohl ein Tip auf **' + g.nName + '**.');
           g.vdif2 = 0; g.vdif = sieg - r2;
           g.vern = siegn;
           return;                                                   // Goto Verend
         }
         if (sieg - r2 > g.vdif) { this.say('Mein Verdacht erhärtet sich.'); g.vdif = sieg - r2; }
         else if (sieg - r2 === g.vdif)
-          this.say('Das hat mir bezüglich ' + g.nName + ' keine Klarheit gebracht.');
-        else this.say('Das spricht eher gegen ' + g.nName + '. Doch ich bleibe dran.');
+          this.say('Das hat mir bezüglich **' + g.nName + '** keine Klarheit gebracht.');
+        else this.say('Das spricht eher gegen **' + g.nName + '**. Doch ich bleibe dran.');
       }
       g.vern = siegn;
     } else {
       if (sieg - r2 < 2 && bx < RUNDEN - 1) {
         if (r2 - r3 > 2) {
-          this.say(db.names[siegn].charAt(0) + '. oder ' + db.names[r2n].charAt(0) +
-                   '. – das ist hier die Frage.');
+          // Left$(Nam$(Siegn)) – im Original nur der Anfangsbuchstabe
+          this.say('**' + db.names[siegn].charAt(0) + '.** oder **' +
+                   db.names[r2n].charAt(0) + '.** – das ist hier die Frage.');
           g.vdif2 = 1;
         } else if (g.verdacht === 1) {
           this.say('Ich muss auch wieder andere Möglichkeiten erwägen.');
