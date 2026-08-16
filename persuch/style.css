@@ -36,7 +36,7 @@ body {
 
 header {
   padding: 1.4rem 1.2rem 0;
-  max-width: 60rem;
+  max-width: 70rem;
   margin: 0 auto;
 }
 h1 {
@@ -70,7 +70,7 @@ nav#tabs button.aktiv, .unterreiter button.aktiv {
   border-bottom-color: var(--akzent);
 }
 
-main { max-width: 60rem; margin: 0 auto; padding: 1.2rem; }
+main { max-width: 70rem; margin: 0 auto; padding: 1.2rem; }
 .tab { display: none; }
 .tab.aktiv { display: block; }
 
@@ -132,7 +132,13 @@ input[type=search] { width: 100%; margin-bottom: .6rem; }
 .protokoll p.warn { color: var(--warn); border-left-color: var(--warn); }
 .protokoll p.frage { font-weight: 600; border-left-color: var(--akzent); }
 
-.optionen { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: .5rem; }
+/* Neun Eigenschaften wollen als 3x3 stehen. Mit auto-fit haengt die
+   Spaltenzahl an der Breite: bei 70rem passte eine vierte Spalte hinein,
+   und jedes Mass, das die verhindert, kostet die dritte schon bei knapp
+   50rem. Darum feste Spaltenzahlen mit Umbruch nach Fensterbreite. */
+.optionen { display: grid; grid-template-columns: 1fr; gap: .5rem; }
+@media (min-width: 35rem) { .optionen { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 52rem) { .optionen { grid-template-columns: repeat(3, 1fr); } }
 .optionen button {
   text-align: left;
   padding: .6rem .8rem;

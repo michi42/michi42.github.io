@@ -461,6 +461,9 @@ function leerzeile(tbody, spalten, text) {
   tbody.appendChild(tr);
 }
 
+/** „Keule (9)“ – die Gegenseite einer Assoziation samt ihrem Wert. */
+const mitWert = (name, wert) => `${name} (${wert})`;
+
 function personenZeichnen() {
   const f = $('filter-personen').value.trim().toLowerCase();
   const box = $('liste-personen');
@@ -479,8 +482,8 @@ function personenZeichnen() {
     tr.onclick = () => personDetail(i);
     tr.appendChild(zelle(String(i), 'idx'));
     tr.appendChild(knopfzelle(db.names[i], () => personDetail(i)));
-    tr.appendChild(zelle(db.eig[mm.maza], 'plus'));
-    tr.appendChild(zelle(db.eig[mm.miza], 'minus'));
+    tr.appendChild(zelle(mitWert(db.eig[mm.maza], mm.max), 'plus'));
+    tr.appendChild(zelle(mitWert(db.eig[mm.miza], mm.min), 'minus'));
     tbody.appendChild(tr);
     anzahl++;
   }
@@ -495,14 +498,19 @@ function eigenschaftenZeichnen() {
   const { huelle, tbody, spalten } = tabelle([
     { text: 'Nr.', cls: 'idx' },
     { text: 'Eigenschaft' },
+    { text: 'stärkste Assoziation' },
+    { text: 'schwächste' },
   ]);
   let anzahl = 0;
   db.eig.forEach((e, i) => {
     if (f && !e.toLowerCase().includes(f)) return;
+    const mm = db.eigMinimax(i);
     const tr = el('tr', 'klickbar');
     tr.onclick = () => eigDetail(i);
     tr.appendChild(zelle(String(i), 'idx'));
     tr.appendChild(knopfzelle(e, () => eigDetail(i)));
+    tr.appendChild(zelle(mm ? mitWert(db.names[mm.maza], mm.max) : '–', 'plus'));
+    tr.appendChild(zelle(mm ? mitWert(db.names[mm.miza], mm.min) : '–', 'minus'));
     tbody.appendChild(tr);
     anzahl++;
   });

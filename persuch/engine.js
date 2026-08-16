@@ -138,6 +138,23 @@ class Db {
     return { maza, miza, max: herma - 85, min: hermi - 85 };
   }
 
+  /**
+   * Das Gegenstueck zu minimax(): staerkste und schwaechste Person zu einer
+   * Eigenschaft. Im Original gibt es dazu nur die 20er-Rangliste; fuer die
+   * Uebersicht braucht es die beiden Enden in einem Durchgang.
+   * @returns {?{maza:number, miza:number, max:number, min:number}}
+   */
+  eigMinimax(k) {
+    if (!this.neu) return null;
+    let hermi = Infinity, herma = -Infinity, miza = 0, maza = 0;
+    for (let y = 0; y < this.neu; y++) {
+      const hil = ascAt(this.bew[y], k + 1);
+      if (hil < hermi) { hermi = hil; miza = y; }
+      if (hil > herma) { herma = hil; maza = y; }
+    }
+    return { maza, miza, max: herma - BEW_BASIS, min: hermi - BEW_BASIS };
+  }
+
   /* --- Bestenliste zu einer Eigenschaft (Zeilen 42-77) ------------- */
   eigRangliste(x) {
     let mineig = 200, ursk = 0, urskz = 0;

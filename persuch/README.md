@@ -66,13 +66,15 @@ andere Schlussteil (mehrfache Namenssuche über alle Teilzeichenketten statt
   anklicken. Nach spätestens 20 Fragen rät das Programm bzw. gibt auf und
   fragt nach. Unbekannte Personen können aufgenommen werden.
 * **Datenbank** – drei Unterreiter:
-  * *Personen* – Liste mit höchst- und tiefstbewerteter Eigenschaft
-    (`Procedure Minimax`). Die Detailansicht erlaubt Umbenennen, Löschen und
-    das Bearbeiten aller Assoziationen (Zahlenfelder von −25 bis 38,
-    sortiert nach Stärke, mit Filter).
-  * *Eigenschaften* – Liste mit Neuanlage; eine neue Eigenschaft startet bei
-    allen Personen auf 0. Die Detailansicht erlaubt Umbenennen und Löschen
-    und zeigt die 20 stärksten Assoziationen samt „and last but not least".
+  * *Personen* – Tabelle mit höchst- und tiefstbewerteter Eigenschaft samt
+    Wert, etwa „Keule (9)" (`Procedure Minimax`). Die Detailansicht erlaubt
+    Umbenennen, Löschen und das Bearbeiten aller Assoziationen (Zahlenfelder
+    von −25 bis 38, sortiert nach Stärke, mit Filter).
+  * *Eigenschaften* – dieselbe Tabelle von der anderen Seite: stärkste und
+    schwächste Person samt Wert (`Db.eigMinimax`, das Gegenstück zu Minimax).
+    Dazu Neuanlage; eine neue Eigenschaft startet bei allen Personen auf 0.
+    Die Detailansicht erlaubt Umbenennen und Löschen und zeigt die 20
+    stärksten Assoziationen samt „and last but not least".
   * *Up-/Download* – JSON herunter-/hochladen, auf die Ausgangsdaten
     zurücksetzen.
 
