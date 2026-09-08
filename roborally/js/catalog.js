@@ -97,8 +97,8 @@ const FILES = [
 const CATEGORIES = [
   'Floors',
   'Conveyors',
+  'Conveyor distributors',
   'Ramps',
-  'Belt distributors',
   'Gears',
   'Walls & ledges',
   'Lasers',
@@ -113,7 +113,7 @@ const CATEGORIES = [
 /* First matching rule wins, so the order here matters. */
 const CATEGORY_RULES = [
   [/^(Big_)?Pusher/,                                    'Pushers & hazards'],
-  [/^Multi_/,                                           'Belt distributors'],
+  [/^Multi_/,                                           'Conveyor distributors'],
   [/^(Crusher|Flamer|Magnet|Spikes)/,                   'Pushers & hazards'],
   [/^Wall_PT/,                                          'Pushers & hazards'],
   [/^Red_Crusher/,                                      'Pushers & hazards'],
@@ -198,7 +198,7 @@ const DIR_STEP = [[0, -1], [1, 0], [0, 1], [-1, 0]];
  */
 const KINDS = {
   'Conveyors':         { key: 'belt',    z: 10, perFacing: false },
-  'Belt distributors': { key: 'belt',    z: 10, perFacing: false },
+  'Conveyor distributors': { key: 'belt', z: 10, perFacing: false },
   'Pits (custom)':     { key: 'pit',     z: 20, perFacing: false },
   'Gears':             { key: 'gear',    z: 30, perFacing: false },
   'Teleporters':       { key: 'warp',    z: 40, perFacing: false },
@@ -215,9 +215,20 @@ const DEFAULT_KIND = { key: 'other', z: 55, perFacing: false };
 /* A mirror is a fitting in the square rather than a gun on the wall, so it gets
  * its own slot and can share a square with a laser cannon. */
 const MIRROR_KIND = { key: 'mirror', z: 85, perFacing: true };
+
+/*
+ * Lettering is not a graphic at all: the placement carries the words and the
+ * editor draws them. The name begins with @ so it can never collide with a file
+ * in assets/. A board's title is printed over everything else, so it sits at
+ * the top of the drawing order.
+ */
+const TEXT_FILE = '@Text';
+const TEXT_KIND = { key: 'text', z: 95, perFacing: false };
+
 const KIND_BY_FILE = {
   Mirror: MIRROR_KIND, Mirror_L: MIRROR_KIND,
   Mirror_W: MIRROR_KIND, Mirror_L_W: MIRROR_KIND,
+  [TEXT_FILE]: TEXT_KIND,
 };
 
 function kindOf(cat) { return KINDS[cat] || DEFAULT_KIND; }
@@ -285,7 +296,7 @@ const PHASED = {
 };
 
 /* ------------------------------------------------------------------ *
- * Belt distributors                                                   *
+ * Conveyor distributors                                              *
  * ------------------------------------------------------------------ */
 
 /*
@@ -765,6 +776,7 @@ const SUFFIX_WORDS = {
 
 /* A few names the mechanical rule below would read wrongly. */
 const LABEL_OVERRIDES = {
+  '@Text': 'Text',
   Wall: 'Wall (edge)',
   Wall_L: 'Wall — corner',
   Ledge: 'Ledge (edge)',
@@ -889,6 +901,16 @@ const AUTO_ENTRIES = [
   }),
 ];
 
+/* Lettering for a board title. It carries words rather than a graphic. */
+const TEXT_ENTRY = (() => {
+  const e = entry({
+    id: 'text:label', label: 'Text', cat: 'Repair & special', layer: 'overlay',
+    files: [TEXT_FILE], smart: true,
+  });
+  e.text = true;
+  return e;
+})();
+
 const RAW_ENTRIES = FILES.filter(name => !HIDDEN_RE.test(name)).map(name => entry({
   id: 'file:' + name,
   label: prettyLabel(name),
@@ -898,7 +920,7 @@ const RAW_ENTRIES = FILES.filter(name => !HIDDEN_RE.test(name)).map(name => entr
   randomRot: layerOf(name) === 'floor',   // loose floor tiles look better scattered
 }));
 
-const ENTRIES = [...SMART_ENTRIES, ...AUTO_ENTRIES, ...RAW_ENTRIES];
+const ENTRIES = [...SMART_ENTRIES, ...AUTO_ENTRIES, TEXT_ENTRY, ...RAW_ENTRIES];
 const ENTRY_BY_ID = new Map(ENTRIES.map(e => [e.id, e]));
 
 /** Palette grouped for the sidebar, the handy entries first inside their group. */
@@ -909,4 +931,15 @@ const PALETTE = CATEGORIES
 /** The raw entry that placed `file`, for the eyedropper. */
 function entryForFile(file) { return ENTRY_BY_ID.get('file:' + file) || null; }
 
-function assetUrl(file) { return ASSET_DIR + file + '.png'; }
+/* The swatch for the text element, drawn rather than loaded from assets/. */
+const TEXT_THUMB = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150">'
+  + '<rect width="150" height="150" fill="#cfcdc6"/>'
+  + '<g font-family="Arial,Helvetica,sans-serif" font-weight="bold" font-size="33"'
+  + ' text-anchor="middle" fill="#000">'
+  + '<text x="75" y="68">BOARD</text><text x="75" y="104">TITLE</text></g></svg>');
+
+function assetUrl(file) {
+  if (file === TEXT_FILE) return TEXT_THUMB;
+  return ASSET_DIR + file + '.png';
+}

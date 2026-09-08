@@ -80,6 +80,7 @@ const state = {
   phases: [1, 3, 5],      // register phases given to new phased elements
   shadow: true,           // whether new elements that can have one get a shadow
   beams: 1,               // barrels on a newly placed laser cannon
+  text: 'BOARD\nTITLE',    // the words a newly placed text element carries
 };
 
 const STORAGE_KEY = 'roborally-board-editor';
@@ -153,6 +154,7 @@ function placement(entry) {
   const p = { file, rot };
   if (entry.distributor) p.route = {};
   if (entry.phased) p.phases = [...state.phases];
+  if (entry.text) p.text = state.text;
   if (shadowFor(file) && state.shadow) p.shadow = true;
   if (emitterSpec(file)) p.count = state.beams;
   return p;
@@ -160,6 +162,7 @@ function placement(entry) {
 
 /** Every graphic a placement needs: its body plus any phase digits. */
 function placementFiles(p) {
+  if (p.file === TEXT_FILE) return [];      // lettering is drawn, not loaded
   const out = [p.file];
   if (p.phases) for (const n of p.phases) out.push(phaseBadge(p.file, n));
   if (p.route) for (const n of Object.keys(p.route)) out.push(exitBadge(n));
@@ -616,11 +619,17 @@ function pushUndo() {
   updateUndoButtons();
 }
 
+/*
+ * Restore a board, from the undo history or from the last autosave. The stack
+ * within a square is sorted again rather than taken as it comes: a board saved
+ * before the drawing order was last changed would otherwise keep the old order
+ * and, say, hide a ramp behind the ledge it climbs.
+ */
 function restore(json) {
   const o = JSON.parse(json);
   state.cols = o.cols;
   state.rows = o.rows;
-  state.cells = o.cells;
+  state.cells = o.cells.map(row => row.map(normalizeCell));
   if (state.sel && !cellAt(state.sel.c, state.sel.r)) state.sel = null;
   els.inCols.value = state.cols;
   els.inRows.value = state.rows;
@@ -668,6 +677,93 @@ function drawPlacement(g, img, x, y, tile, rot) {
   g.translate(x + tile / 2, y + tile / 2);
   if (rot) g.rotate(rot * Math.PI / 2);
   g.drawImage(img, -w / 2, -h / 2, w, h);
+  g.restore();
+}
+
+/* ------------------------------------------------------------------ *
+ * Lettering                                                           *
+ * ------------------------------------------------------------------ */
+
+/*
+ * Measured off the title printed on the Baggage Claim board: black bold sans,
+ * set in caps 23px tall — about 33px of type at 150px to the square — on 36px
+ * lines, the longer of its two lines filling 134px of the 150. The printed face
+ * is a narrower one than anything we can count on having, so the size above is
+ * a ceiling and the fitting below is what decides the size actually used.
+ */
+const TEXT_FONT = 'Arial, Helvetica, sans-serif';
+const TEXT_MAX = 33;        // font size at TILE_PX, before any shrinking
+const TEXT_MIN = 7;
+const TEXT_LEAD = 1.09;     // line spacing, in ems
+const TEXT_FIT = 0.9;       // how much of the square the block may fill
+
+/*
+ * Wrap `paras` into lines no wider than `room`, at whatever size the context's
+ * font is set to. A word too wide to stand on a line of its own is left over-long
+ * unless `hard` is set, when it is broken across lines instead — the layout
+ * shrinks the type to avoid that as long as there is room to.
+ */
+function wrapText(g, paras, room, hard) {
+  const lines = [];
+  for (const para of paras) {
+    let line = '';
+    for (let word of para.split(/\s+/).filter(Boolean)) {
+      while (hard && g.measureText(word).width > room && word.length > 1) {
+        let n = 1;
+        while (n < word.length && g.measureText(word.slice(0, n + 1)).width <= room) n++;
+        if (line) { lines.push(line); line = ''; }
+        lines.push(word.slice(0, n));
+        word = word.slice(n);
+      }
+      const next = line ? line + ' ' + word : word;
+      if (line && g.measureText(next).width > room) { lines.push(line); line = word; }
+      else line = next;
+    }
+    lines.push(line);                         // a line you left blank stays blank
+  }
+  return lines;
+}
+
+/*
+ * Break `text` into lines that fit a square and pick the size to set them at.
+ * Lines the user typed are kept; anything too long is wrapped at a space, and
+ * the size comes down until the block fits the square both ways. Wrapping
+ * depends on the size, so the two are settled together, largest first.
+ *
+ * It is all worked out at TILE_PX and scaled when drawn, so the lettering on
+ * screen is the lettering in the exported PNG.
+ */
+function textLayout(g, text) {
+  const room = TILE_PX * TEXT_FIT;
+  const paras = String(text).split('\n');
+
+  for (let size = TEXT_MAX; size >= TEXT_MIN; size -= 0.5) {
+    g.font = 'bold ' + size + 'px ' + TEXT_FONT;
+    const lines = wrapText(g, paras, room, false);
+    if (lines.every(l => g.measureText(l).width <= room)
+        && lines.length * size * TEXT_LEAD <= room) {
+      return { size, lines };
+    }
+  }
+  /* as small as the type goes: break the words themselves rather than run over */
+  g.font = 'bold ' + TEXT_MIN + 'px ' + TEXT_FONT;
+  return { size: TEXT_MIN, lines: wrapText(g, paras, room, true) };
+}
+
+/* Lettering for a board title, centred in its square and turning with it. */
+function drawText(g, p, x, y, tile) {
+  if (!p.text) return;
+  g.save();
+  g.translate(x + tile / 2, y + tile / 2);
+  if (p.rot) g.rotate(p.rot * Math.PI / 2);
+  g.scale(tile / TILE_PX, tile / TILE_PX);
+  const lay = textLayout(g, p.text);
+  const step = lay.size * TEXT_LEAD;
+  g.fillStyle = '#000';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  const top = -(lay.lines.length - 1) * step / 2;
+  lay.lines.forEach((line, i) => g.fillText(line, 0, top + i * step));
   g.restore();
 }
 
@@ -1192,8 +1288,9 @@ function drawTiles(g, tile, resolve) {
             if (barrel) drawMounted(g, barrel, x, y, tile, p.rot, stand.in, b.shift + stand.side);
           }
         }
-        const img = barrels ? null : resolve(p.file);
-        if (img && p.bank) drawBank(g, img, x, y, tile, p.rot, p.bank);
+        const img = barrels || p.file === TEXT_FILE ? null : resolve(p.file);
+        if (p.file === TEXT_FILE) drawText(g, p, x, y, tile);
+        else if (img && p.bank) drawBank(g, img, x, y, tile, p.rot, p.bank);
         else if (img) drawMounted(g, img, x, y, tile, p.rot, stand.in, stand.side);
         /* paint the belt's arrow out straight away, before anything else in
          * the square is drawn over it */
@@ -1776,6 +1873,28 @@ function optionRow(label, get, set) {
   return box;
 }
 
+/*
+ * The words a text element carries. Typed lines are kept as they are; the
+ * editor wraps and shrinks whatever will not fit the square, so there is
+ * nothing to set beyond the text itself.
+ */
+function textRow(get, set) {
+  const box = document.createElement('div');
+  box.className = 'textprop';
+  const l = document.createElement('span');
+  l.textContent = 'Text';
+  const ta = document.createElement('textarea');
+  ta.rows = 2;
+  ta.spellcheck = false;
+  ta.value = get();
+  ta.placeholder = 'Board title';
+  ta.title = 'Line breaks are kept; long lines are wrapped and the size brought '
+    + 'down until the words fit the square';
+  ta.addEventListener('input', () => set(ta.value));
+  box.append(l, ta);
+  return box;
+}
+
 /** A row of mutually exclusive choices, e.g. how many barrels a cannon has. */
 function choiceRow(label, values, get, set) {
   const box = document.createElement('div');
@@ -1871,6 +1990,9 @@ function renderBrush() {
       + 'are printed against the side they send it out of.';
     box.appendChild(hint);
   }
+  if (e.text) {
+    box.appendChild(textRow(() => state.text, v => { state.text = v; }));
+  }
   if (e.phased) box.appendChild(phaseChooser(() => state.phases, setPhases));
   if (shadowFor(e.files[0])) {
     box.appendChild(optionRow('Drop shadow',
@@ -1891,13 +2013,21 @@ function renderBrush() {
 
 const FACING = ['N', 'E', 'S', 'W'];
 
+/** The words of a text element, on one line, for the lists that mention it. */
+function oneLine(text) {
+  const flat = String(text || '').replace(/\s+/g, ' ').trim();
+  return flat.length > 24 ? flat.slice(0, 23) + '\u2026' : flat;
+}
+
 function describeCell(c, r) {
   const cell = cellAt(c, r);
   if (!cell) return '';
   const n = cell.items.length + (cell.floor ? 1 : 0);
   const top = topOf(cell);
   return colName(c) + (r + 1) + ' — ' + n + (n === 1 ? ' element' : ' elements')
-    + (top ? ' — top: ' + prettyLabel(top.file) + ' facing ' + FACING[top.rot]
+    + (top ? ' — top: ' + prettyLabel(top.file)
+             + (top.file === TEXT_FILE ? ' \u201c' + oneLine(top.text) + '\u201d' : '')
+             + ' facing ' + FACING[top.rot]
              + (top.phases ? ', phases ' + (top.phases.join(', ') || 'none') : '')
            : '');
 }
@@ -1930,7 +2060,8 @@ function renderCellInfo() {
     const nm = document.createElement('div');
     nm.className = 'nm';
     nm.innerHTML = '<i></i>';
-    nm.prepend(prettyLabel(row.p.file) + ' ');
+    nm.prepend(prettyLabel(row.p.file)
+      + (row.p.file === TEXT_FILE ? ' \u2014 \u201c' + oneLine(row.p.text) + '\u201d ' : ' '));
     nm.querySelector('i').textContent = '(' + FACING[row.p.rot] + ')';
 
     const turn = dir => {
@@ -1960,6 +2091,17 @@ function renderCellInfo() {
     el.append(img, nm, turn(-1), turn(1), del);
     box.appendChild(el);
 
+    if (row.p.file === TEXT_FILE) {
+      let held = false;                     // one undo step per burst of typing
+      box.appendChild(textRow(
+        () => row.p.text || '',
+        v => {
+          if (!held) { pushUndo(); held = true; }
+          row.p.text = v;
+          scheduleRender();
+          autosave();
+        }));
+    }
     if (phaseSpec(row.p.file)) {
       box.appendChild(phaseChooser(
         () => row.p.phases || [],
@@ -2197,6 +2339,7 @@ els.inSearch.addEventListener('input', () => {
 document.addEventListener('keydown', e => {
   const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName);
   if (e.ctrlKey || e.metaKey) {
+    if (typing) return;                     // a field undoes its own typing
     if (e.key.toLowerCase() === 'z') {
       e.preventDefault();
       e.shiftKey ? redo() : undo();
