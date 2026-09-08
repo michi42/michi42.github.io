@@ -1,0 +1,219 @@
+:root {
+  --bg:      #14161a;
+  --panel:   #1c1f26;
+  --panel-2: #232733;
+  --line:    #333846;
+  --text:    #dfe3ec;
+  --dim:     #8d95a8;
+  --accent:  #f0a500;
+  --accent-d:#7a5500;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.4 system-ui, "Segoe UI", Roboto, sans-serif;
+}
+
+body { display: flex; flex-direction: column; }
+
+/* ---------- toolbar ------------------------------------------------- */
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  padding: 8px 12px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+
+.toolbar h1 {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 8px 0 0;
+  letter-spacing: .3px;
+  white-space: nowrap;
+}
+.toolbar h1 span { color: var(--dim); font-weight: 400; }
+
+.group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 14px;
+  border-right: 1px solid var(--line);
+}
+.group:last-child { border-right: 0; padding-right: 0; }
+.group .lbl { color: var(--dim); }
+
+label { display: inline-flex; align-items: center; gap: 4px; color: var(--dim); white-space: nowrap; }
+label.chk { cursor: pointer; }
+
+button, select, input[type=number], input[type=search] {
+  font: inherit;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+button { cursor: pointer; }
+button:hover { background: #2c3142; }
+button.on { background: var(--accent-d); border-color: var(--accent); color: #fff; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #1a1a1a; font-weight: 600; }
+button.primary:hover { filter: brightness(1.1); }
+
+input[type=number] { width: 52px; }
+input[type=range] { width: 110px; accent-color: var(--accent); }
+
+/* ---------- layout -------------------------------------------------- */
+
+main { flex: 1; display: flex; min-height: 0; }
+
+#palette, #inspector {
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+#palette   { width: 268px; border-right: 1px solid var(--line); }
+#inspector { width: 240px; border-left: 1px solid var(--line); overflow-y: auto; padding: 0 10px 16px; }
+
+#stage {
+  flex: 1;
+  overflow: auto;
+  background:
+    linear-gradient(45deg, #0e1013 25%, transparent 25%, transparent 75%, #0e1013 75%) 0 0 / 24px 24px,
+    linear-gradient(45deg, #0e1013 25%, transparent 25%, transparent 75%, #0e1013 75%) 12px 12px / 24px 24px,
+    #101216;
+}
+#stageInner { display: inline-block; padding: 24px; }
+#board { display: block; box-shadow: 0 0 0 1px #000, 0 8px 40px #0008; cursor: crosshair; }
+
+/* ---------- palette ------------------------------------------------- */
+
+.pal-head { padding: 8px; border-bottom: 1px solid var(--line); }
+#inSearch { width: 100%; }
+
+#palList { overflow-y: auto; flex: 1; padding-bottom: 20px; }
+
+#palList details { border-bottom: 1px solid var(--line); }
+#palList summary {
+  padding: 6px 10px;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--dim);
+  user-select: none;
+}
+#palList summary:hover { color: var(--text); }
+#palList summary .count { font-weight: 400; opacity: .6; }
+
+.swatches { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 8px 10px; }
+
+.sw {
+  width: 48px; height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #2a2a2a
+    repeating-conic-gradient(#3a3a3a 0 25%, #303030 0 50%) 0 0 / 12px 12px;
+  padding: 0;
+  overflow: hidden;
+  position: relative;
+}
+.sw img { width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none; }
+.sw:hover { border-color: var(--dim); }
+.sw.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-d); }
+/* ⁂ marks a swatch that picks between several graphics, A one that paints and
+   picks the pieces for you. */
+.sw.multi::after,
+.sw.tool::before {
+  position: absolute;
+  bottom: -1px;
+  font-size: 11px;
+  color: var(--accent);
+  text-shadow: 0 0 3px #000, 0 0 3px #000;
+}
+.sw.multi::after { content: "⁂"; right: 1px; }
+.sw.tool::before { content: "A"; left: 2px; font-weight: 700; }
+.empty-note { padding: 10px; color: var(--dim); }
+
+/* ---------- inspector ----------------------------------------------- */
+
+#inspector h2 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  color: var(--dim);
+  margin: 14px 0 6px;
+}
+
+.brush { color: var(--dim); }
+.brush-head { display: flex; align-items: center; gap: 8px; }
+.brush img {
+  width: 44px; height: 44px; object-fit: contain;
+  border: 1px solid var(--line); border-radius: 4px;
+  background: repeating-conic-gradient(#3a3a3a 0 25%, #303030 0 50%) 0 0 / 12px 12px;
+}
+.brush b { color: var(--text); display: block; }
+
+.cell-info { color: var(--dim); }
+.layer {
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px; margin-bottom: 3px;
+  background: var(--panel-2); border-radius: 4px;
+}
+.layer img {
+  width: 32px; height: 32px; object-fit: contain; flex: none;
+  background: repeating-conic-gradient(#3a3a3a 0 25%, #303030 0 50%) 0 0 / 8px 8px;
+  border-radius: 3px;
+}
+.layer .nm { flex: 1; min-width: 0; color: var(--text); font-size: 12px; overflow-wrap: anywhere; }
+.layer .nm i { color: var(--dim); font-style: normal; }
+.layer button { padding: 2px 5px; font-size: 11px; }
+.layer.floorLayer { outline: 1px dashed var(--line); }
+
+ul.help { margin: 0; padding-left: 16px; color: var(--dim); }
+ul.help li { margin-bottom: 3px; }
+ul.help b { color: var(--text); font-weight: 600; }
+
+/* ---------- status -------------------------------------------------- */
+
+.status {
+  padding: 5px 12px;
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+  color: var(--dim);
+  min-height: 26px;
+}
+.status.warn { color: #ffb3b3; }
+
+/* ---------- register phases ------------------------------------------ */
+
+.phases {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin: 6px 0 8px;
+}
+.phases span { color: var(--dim); margin-right: 3px; min-width: 44px; }
+.phases button {
+  width: 22px;
+  padding: 2px 0;
+  text-align: center;
+  color: var(--dim);
+}
+.phases button.on { background: var(--accent-d); border-color: var(--accent); color: #fff; }
+
+.layer + .phases { margin: -1px 0 7px 38px; }
+
+.opts { margin: 4px 0 8px; }
+.opts label { cursor: pointer; }
+.layer + .opts, .phases + .opts { margin: -3px 0 8px 38px; }
+
+.hint { margin: 6px 0 2px; color: var(--dim); line-height: 1.35; }

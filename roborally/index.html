@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RoboRally Board Editor</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="toolbar">
+  <h1>RoboRally <span>board editor</span></h1>
+
+  <div class="group">
+    <label>Board
+      <input type="number" id="inCols" min="1" max="40" value="12" title="columns">
+      &times;
+      <input type="number" id="inRows" min="1" max="40" value="12" title="rows">
+    </label>
+    <button id="btnResize" title="Apply the board size">Resize</button>
+    <button id="btnNew" title="Discard the board and start again">New</button>
+  </div>
+
+  <div class="group" id="tools">
+    <button data-tool="paint"  class="on" title="Paint (B)">✏️ Paint</button>
+    <button data-tool="erase"  title="Erase topmost element (E)">🧽 Erase</button>
+    <button data-tool="rotate" title="Turn topmost element — Shift to turn back (T)">🔄 Turn</button>
+    <button data-tool="pick"   title="Pick element under cursor (I)">💉 Pick</button>
+  </div>
+
+  <div class="group" id="rotGroup">
+    <span class="lbl" title="Orientation used for new elements (R cycles)">Facing</span>
+    <button data-rot="auto" class="on" title="Random for floors, north for everything else">Auto</button>
+    <button data-rot="0">N</button>
+    <button data-rot="1">E</button>
+    <button data-rot="2">S</button>
+    <button data-rot="3">W</button>
+  </div>
+
+  <div class="group">
+    <button id="btnFill" title="Re-lay the whole floor with the selected floor tile">Fill floor</button>
+    <button id="btnUndo" title="Undo (Ctrl+Z)">↶</button>
+    <button id="btnRedo" title="Redo (Ctrl+Shift+Z)">↷</button>
+  </div>
+
+  <div class="group">
+    <label class="chk"><input type="checkbox" id="chkGrid" checked> Grid</label>
+    <label class="chk"><input type="checkbox" id="chkCoords" checked> Coords</label>
+    <label>Zoom <input type="range" id="inZoom" min="16" max="150" step="2" value="56"></label>
+  </div>
+
+  <div class="group">
+    <button id="btnBackdrop" title="Show an image behind the board, for the transparent squares to let through">Background</button>
+    <button id="btnBackdropOff" title="Take the background image away" disabled>&times;</button>
+    <input type="file" id="fileBackdrop" accept="image/*" hidden>
+  </div>
+
+  <div class="group">
+    <button id="btnSave" title="Download the board as JSON">Save</button>
+    <button id="btnLoad" title="Load a board from JSON">Load</button>
+    <input type="file" id="fileLoad" accept=".json,application/json" hidden>
+  </div>
+
+  <div class="group export">
+    <label>PNG
+      <select id="inExportTile" title="Pixels per square in the exported image">
+        <option value="150" selected>150 px/sq (full)</option>
+        <option value="100">100 px/sq</option>
+        <option value="75">75 px/sq</option>
+        <option value="50">50 px/sq</option>
+      </select>
+    </label>
+    <label class="chk"><input type="checkbox" id="chkExportGrid"> lines</label>
+    <button id="btnExport" class="primary">Download PNG</button>
+  </div>
+</header>
+
+<main>
+  <aside id="palette">
+    <div class="pal-head">
+      <input type="search" id="inSearch" placeholder="Search elements…" autocomplete="off">
+    </div>
+    <div id="palList"></div>
+  </aside>
+
+  <section id="stage">
+    <div id="stageInner"><canvas id="board"></canvas></div>
+  </section>
+
+  <aside id="inspector">
+    <h2>Brush</h2>
+    <div id="brush" class="brush">nothing selected</div>
+
+    <h2>Cell</h2>
+    <div id="cellInfo" class="cell-info">click a square</div>
+
+    <h2>Help</h2>
+    <ul class="help">
+      <li><b>Click / drag</b> paints the brush</li>
+      <li><b>Wheel</b> turns the top element</li>
+      <li><b>Right-click</b> removes the top element</li>
+      <li><b>Alt+click</b> turns the top element<br>(hold <b>Shift</b> to turn back)</li>
+      <li><b>Middle-drag</b> pans, <b>Ctrl+wheel</b> zooms</li>
+      <li><b>B / E / T / I</b> switch tool</li>
+      <li><b>R</b> cycles the facing</li>
+      <li><b>Del</b> clears the selected square</li>
+      <li><b>Ctrl+Z / Ctrl+Shift+Z</b> undo / redo</li>
+    </ul>
+  </aside>
+</main>
+
+<footer class="status"><span id="status">Ready.</span></footer>
+
+<script src="js/catalog.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
