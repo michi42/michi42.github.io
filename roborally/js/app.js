@@ -367,6 +367,21 @@ function pitPieces(kind, c, r) {
   const open = [0, 1, 2, 3].filter(e => !isPit(c + DIR_STEP[e][0], r + DIR_STEP[e][1], kind));
 
   /*
+   * Waste has no corner or ring tile: its bank is simply drawn along the foot
+   * of a square, so one is laid on each side the pool stops at, taking any of
+   * the interchangeable bank tiles. The choice is made from the position so
+   * that it keeps still as the pool around it is painted.
+   */
+  if (set.bank) {
+    for (const e of open) {
+      const v = (((c * 7 + r * 13 + e * 5) % set.banks.length) + set.banks.length)
+                % set.banks.length;
+      out.push({ file: set.banks[v], rot: (e + 2) % 4, bank: set.bank });
+    }
+    return out;
+  }
+
+  /*
    * A pit's rim is drawn inside the pit, so where the pit turns around the
    * outside of a square the two rims meeting at that corner sit in squares
    * diagonally apart. The bare corner is the inner one of the turn, inside this
@@ -410,7 +425,10 @@ function paintPit(c, r, kind, on) {
      * back rather than leaving a hole */
     const beneath = cell.floor && cell.floor.auto ? cell.floor.under || null : cell.floor || null;
     for (const k of PIT_KINDS) cell.items = cell.items.filter(p => p.auto !== k);
-    cell.floor = { file: AUTO_AREAS[kind].floor, rot: 0, auto: kind, under: beneath };
+    /* sludge has a pattern of its own, so each square of it is turned at
+     * random to keep a pool from looking tiled */
+    const spin = AUTO_AREAS[kind].spin ? (Math.random() * 4) | 0 : 0;
+    cell.floor = { file: AUTO_AREAS[kind].floor, rot: spin, auto: kind, under: beneath };
   } else {
     cell.floor = cell.floor.under || null;
   }
@@ -436,7 +454,11 @@ function refreshPits(c, r) {
   for (const [nc, nr, k, pieces] of jobs) {
     const t = cellAt(nc, nr);
     t.items = t.items.filter(p => p.auto !== k);
-    for (const piece of pieces) t.items.push({ file: piece.file, rot: piece.rot, auto: k });
+    for (const piece of pieces) {
+      const item = { file: piece.file, rot: piece.rot, auto: k };
+      if (piece.bank) item.bank = piece.bank;
+      t.items.push(item);
+    }
     sortItems(t);
   }
 }
@@ -646,6 +668,44 @@ function drawPlacement(g, img, x, y, tile, rot) {
   g.translate(x + tile / 2, y + tile / 2);
   if (rot) g.rotate(rot * Math.PI / 2);
   g.drawImage(img, -w / 2, -h / 2, w, h);
+  g.restore();
+}
+
+/*
+ * A bank is the strip along the foot of a waste tile. Drawing it on its own
+ * over a square of sludge lets a pool stop on any combination of sides without
+ * an artwork for every shape. The strip is cut deep enough to clear the highest
+ * point of the shore and faded out along its inner edge, so that the sludge it
+ * brings with it melts into the sludge already there instead of ending on a
+ * straight line across the square.
+ */
+const BANK_FADE = 16;                       // how far the inner edge fades, in TILE_PX
+const bankPad = document.createElement('canvas');
+
+function drawBank(g, img, x, y, tile, rot, depth) {
+  const k = tile / TILE_PX;
+  const d = Math.ceil(depth * k), fade = BANK_FADE * k;
+  const w = Math.ceil(tile);
+  if (d < 1 || w < 1) return;
+
+  bankPad.width = w; bankPad.height = d;
+  const p = bankPad.getContext('2d');
+  p.clearRect(0, 0, w, d);
+  const iw = img.naturalWidth * k, ih = img.naturalHeight * k;
+  p.drawImage(img, (tile - iw) / 2, (tile - ih) / 2 - (tile - d), iw, ih);
+
+  const grad = p.createLinearGradient(0, 0, 0, fade);
+  grad.addColorStop(0, 'rgba(0,0,0,0)');
+  grad.addColorStop(1, 'rgba(0,0,0,1)');
+  p.globalCompositeOperation = 'destination-in';
+  p.fillStyle = grad;
+  p.fillRect(0, 0, w, d);
+  p.globalCompositeOperation = 'source-over';
+
+  g.save();
+  g.translate(x + tile / 2, y + tile / 2);
+  if (rot) g.rotate(rot * Math.PI / 2);
+  g.drawImage(bankPad, -tile / 2, tile / 2 - d);
   g.restore();
 }
 
@@ -1133,7 +1193,8 @@ function drawTiles(g, tile, resolve) {
           }
         }
         const img = barrels ? null : resolve(p.file);
-        if (img) drawMounted(g, img, x, y, tile, p.rot, stand.in, stand.side);
+        if (img && p.bank) drawBank(g, img, x, y, tile, p.rot, p.bank);
+        else if (img) drawMounted(g, img, x, y, tile, p.rot, stand.in, stand.side);
         /* paint the belt's arrow out straight away, before anything else in
          * the square is drawn over it */
         if (host && p === belt) maskBeltArrow(g, beltWindow(host.file), belt, x, y, tile);

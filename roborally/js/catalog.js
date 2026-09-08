@@ -105,7 +105,7 @@ const CATEGORIES = [
   'Pushers & hazards',
   'Repair & special',
   'Teleporters',
-  'Oil & decals',
+  'Oil & waste',
   'Other',
   'Pits (custom)',
 ];
@@ -117,7 +117,8 @@ const CATEGORY_RULES = [
   [/^(Crusher|Flamer|Magnet|Spikes)/,                   'Pushers & hazards'],
   [/^Wall_PT/,                                          'Pushers & hazards'],
   [/^Red_Crusher/,                                      'Pushers & hazards'],
-  [/^(Radiation|Radioactive)/,                          'Floors'],
+  [/^Radioactive/,                                      'Oil & waste'],
+  [/^Radiation/,                                        'Floors'],
 
   [/^(Wall|Padded_Wall|Ledge|Forcefield|Knightsbridge|Grate)/, 'Walls & ledges'],
 
@@ -142,8 +143,8 @@ const CATEGORY_RULES = [
   [/^Water_Current/,                                    'Conveyors'],
   [/^(Blue|Red|Gold|Green|GreenA|GreenB|Variable)(_|$)/, 'Conveyors'],
 
-  [/^Oil/,                                              'Oil & decals'],
-  [/^Number/,                                           'Oil & decals'],
+  [/^Oil/,                                              'Oil & waste'],
+  [/^Number/,                                           'Oil & waste'],
 
   [/^Floor/,                                            'Floors'],
   [/^(Blank|Black|Water\d|Water1_Special|Padded_|Rust|Sandslip)/, 'Floors'],
@@ -202,8 +203,8 @@ const KINDS = {
   'Gears':             { key: 'gear',    z: 30, perFacing: false },
   'Teleporters':       { key: 'warp',    z: 40, perFacing: false },
   'Repair & special':  { key: 'station', z: 50, perFacing: false },
-  'Oil & decals':      { key: 'decal',   z: 60, perFacing: false },
-  'Ramps':             { key: 'ramp',    z: 65, perFacing: true  },
+  'Oil & waste':       { key: 'decal',   z: 60, perFacing: false },
+  'Ramps':             { key: 'ramp',    z: 82, perFacing: true  },
   'Pushers & hazards': { key: 'hazard',  z: 70, perFacing: true  },
   'Walls & ledges':    { key: 'wall',    z: 80, perFacing: true  },
   'Lasers':            { key: 'laser',   z: 90, perFacing: true  },
@@ -596,6 +597,19 @@ const AUTO_AREAS = {
     edge: 'Pit_Tape_Edge', corner: 'Pit_Tape_L', three: 'Pit_Tape_U', all: null,
     nodule: 'Pit_Tape_Nodule',
   },
+  /*
+   * Waste has no corner or ring tile, only a bank drawn along the foot of an
+   * otherwise ordinary square of sludge. So rather than pick a tile per shape,
+   * a bank is laid on each side the pool stops at, clipped to the strip it
+   * occupies, which covers every shape a pool can take. `banks` are the three
+   * interchangeable bank tiles and `bank` is how deep the strip is.
+   */
+  waste: {
+    label: 'Radioactive waste', floor: 'Radioactive_Waste',
+    cat: 'Oil & waste', bank: 48, thumb: 'Radioactive_Waste_End', spin: true,
+    banks: ['Radioactive_Waste_Edge1', 'Radioactive_Waste_Edge2',
+            'Radioactive_Waste_Edge3'],
+  },
 };
 
 /*
@@ -856,7 +870,7 @@ const AUTO_ENTRIES = [
   (() => {
     const e = entry({
       id: 'slick:oil', label: 'Oil slick (auto)',
-      cat: 'Oil & decals', layer: 'overlay',
+      cat: 'Oil & waste', layer: 'overlay',
       files: ['Oil_Start1'], smart: true,
     });
     e.slick = true;
@@ -866,8 +880,9 @@ const AUTO_ENTRIES = [
     const e = entry({
       id: 'area:' + kind,
       label: AUTO_AREAS[kind].label + ' (auto)',
-      cat: 'Floors', layer: 'overlay',
-      files: [AUTO_AREAS[kind].all || AUTO_AREAS[kind].three], smart: true,
+      cat: AUTO_AREAS[kind].cat || 'Floors', layer: 'overlay',
+      files: [AUTO_AREAS[kind].thumb || AUTO_AREAS[kind].all
+              || AUTO_AREAS[kind].three], smart: true,
     });
     e.area = kind;
     return e;
