@@ -172,6 +172,15 @@ const FLOOR_RE = new RegExp('^(' + [
 
 function layerOf(name) { return FLOOR_RE.test(name) ? 'floor' : 'overlay'; }
 
+/*
+ * Directions and tile edges share one encoding: 0 north, 1 east, 2 south,
+ * 3 west, going clockwise. A graphic drawn against the bottom of its tile is on
+ * edge 2, and turning a placement by `rot` quarter-turns clockwise moves each of
+ * its edges on by the same amount.
+ */
+const EDGE_N = 0, EDGE_E = 1, EDGE_S = 2, EDGE_W = 3;
+const DIR_STEP = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+
 /* ------------------------------------------------------------------ *
  * Overlay slots                                                       *
  * ------------------------------------------------------------------ */
@@ -294,6 +303,19 @@ const EXIT_INSET = 20;          // how far in from the edge the numbers sit
 
 function isDistributor(file) { return DISTRIBUTORS.has(file); }
 
+/*
+ * Which sides a distributor's arrows point out of, read from its name: the
+ * letters after the colour are the ways out — up, down, left, right — and a
+ * leading X only says the belt comes in from the side rather than the foot of
+ * the tile, which does not change where it can send a robot.
+ */
+const EXIT_LETTERS = { U: EDGE_N, D: EDGE_S, L: EDGE_W, R: EDGE_E };
+
+function distributorExits(file) {
+  const m = /^Multi_(?:Blue|Gold|Red)_X?([UDLR]+)$/.exec(file);
+  return m ? [...m[1]].map(ch => EXIT_LETTERS[ch]) : [];
+}
+
 function exitBadge(n) { return EXIT_BADGE.replace('#', n); }
 
 function phaseSpec(file) { return PHASED[file] || null; }
@@ -358,6 +380,9 @@ const HIDDEN_RE = new RegExp('^(' + [
   'XGear_[NESW]', 'Big_Gear_H[234]', 'Big_Gear_V[1234]',
   /* the top of the long flame comes with its nozzle */
   'Flamer_Long_Blank',
+  /* the mirrors on a wall are the plain ones stood off it, which is done for
+   * them when a wall is there */
+  'Mirror_W', 'Mirror_L_W',
   /* the gold "special" belts; Gold_Special1 is the gold belt-ramp and stays */
   'Gold_Special[23]',
   /* spikes and a wall can be placed one on top of the other */
@@ -369,15 +394,6 @@ const HIDDEN_RE = new RegExp('^(' + [
 /* ------------------------------------------------------------------ *
  * Lasers                                                              *
  * ------------------------------------------------------------------ */
-
-/*
- * Directions and tile edges share one encoding: 0 north, 1 east, 2 south,
- * 3 west, going clockwise. A graphic drawn against the bottom of its tile is on
- * edge 2, and turning a placement by `rot` quarter-turns clockwise moves each of
- * its edges on by the same amount.
- */
-const EDGE_N = 0, EDGE_E = 1, EDGE_S = 2, EDGE_W = 3;
-const DIR_STEP = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 
 /*
  * Elements that cast something down a line of squares. An emitter turned by
@@ -459,7 +475,6 @@ wallsOn([EDGE_S], [
   'Forcefield', 'Forcefield_Open_L', 'Forcefield_Open_R',
   'Padded_Wall_Green_L', 'Padded_Wall_Green_R',
   'Padded_Wall_Pink_L', 'Padded_Wall_Pink_R',
-  'Mirror', 'Mirror_W', 'Mirror_L_W',
 ]);
 wallsOn([EDGE_S, EDGE_W], [
   'Wall_L', 'Wall_L_Open_B', 'Wall_L_Open_L', 'Wall_L_Open_R',
@@ -483,15 +498,21 @@ const LEDGE_EDGES = {
  * instead of sinking into it.
  */
 const EDGE_MOUNTED = {
-  Gun: EDGE_S, GunL: EDGE_S, GunR: EDGE_S, MGun: EDGE_S,
-  Pusher_Blank: EDGE_S, Big_Pusher_Blank: EDGE_S,
-  Spikes: EDGE_S, Wall_PT: EDGE_S,
+  Gun: [EDGE_S], GunL: [EDGE_S], GunR: [EDGE_S], MGun: [EDGE_S],
+  Pusher_Blank: [EDGE_S], Big_Pusher_Blank: [EDGE_S],
+  Spikes: [EDGE_S], Wall_PT: [EDGE_S],
+  /* the mirrors: the flat one is bolted to one edge, the angled one tucks into
+   * the corner between two, so a wall on either pushes it off that one */
+  Mirror: [EDGE_S], Mirror_L: [EDGE_S, EDGE_W],
 };
 
-/** The edge `file` is bolted to once turned by `rot`, or null if it is not. */
+/** The edges `file` is bolted to, as drawn; empty if it is bolted to none. */
+function mountBases(file) { return EDGE_MOUNTED[file] || []; }
+
+/** The edge a single-edge fitting is bolted to once turned, or null. */
 function mountEdge(file, rot) {
   const base = EDGE_MOUNTED[file];
-  return base === undefined ? null : (base + rot) % 4;
+  return base ? (base[0] + rot) % 4 : null;
 }
 
 /*
@@ -505,7 +526,6 @@ const WALL_DEPTH = {
   Forcefield: 13, Forcefield_Open_L: 13, Forcefield_Open_R: 13,
   Padded_Wall_Green_L: 9, Padded_Wall_Pink_L: 8,
   Padded_Wall_Green_R: 16, Padded_Wall_Pink_R: 16,
-  Mirror: 20,
   Ledge: 27, Ledge_L: 27, Ledge_U: 27, Ledge_O: 27,
 };
 

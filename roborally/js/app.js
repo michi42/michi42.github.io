@@ -931,9 +931,22 @@ function mountDepth(cell, edge, self) {
   return depth;
 }
 
-/** How far a placement is stood off the wall it is bolted to, if any. */
+/*
+ * How far a placement is stood off the walls it is bolted to, in its own frame:
+ * `in` away from the edge it faces, `side` away from the one beside it. An
+ * angled mirror sits in a corner and can be pushed off both.
+ */
 function standOff(cell, p) {
-  return mountDepth(cell, mountEdge(p.file, p.rot), p);
+  const off = { in: 0, side: 0 };
+  for (const base of mountBases(p.file)) {
+    const depth = mountDepth(cell, (base + p.rot) % 4, p);
+    if (!depth) continue;
+    if (base === EDGE_S) off.in += depth;
+    else if (base === EDGE_N) off.in -= depth;
+    else if (base === EDGE_W) off.side += depth;
+    else off.side -= depth;
+  }
+  return off;
 }
 
 function mirrorInCell(cell) {
@@ -989,7 +1002,7 @@ function traceAllBeams() {
       for (const p of state.cells[r][c].items) {
         const spec = emitterSpec(p.file);
         if (!spec) continue;
-        const inset = spec.muzzle && standOff(state.cells[r][c], p) + spec.muzzle;
+        const inset = spec.muzzle && standOff(state.cells[r][c], p).in + spec.muzzle;
         for (const b of emitterBarrels(spec, p.count)) {
           traceBeam(c, r, p.rot, b.off, spec, out, inset);
         }
@@ -1057,10 +1070,11 @@ function drawExitBadges(g, p, x, y, tile, resolve) {
 
   /* the route says where each phase sends a robot; the numbers are printed
    * grouped at the side they send it out of */
+  const ways = distributorExits(p.file);
   const byExit = {};
   for (const n of PHASES) {
     const rel = p.route[n];
-    if (rel === undefined || rel === null) continue;
+    if (rel === undefined || rel === null || !ways.includes(rel)) continue;
     (byExit[rel] = byExit[rel] || []).push(n);
   }
 
@@ -1115,17 +1129,17 @@ function drawTiles(g, tile, resolve) {
         if (barrels) {
           for (const b of emitterBarrels(emitter, p.count)) {
             const barrel = resolve(b.mount);
-            if (barrel) drawMounted(g, barrel, x, y, tile, p.rot, stand, b.shift);
+            if (barrel) drawMounted(g, barrel, x, y, tile, p.rot, stand.in, b.shift + stand.side);
           }
         }
         const img = barrels ? null : resolve(p.file);
-        if (img) drawMounted(g, img, x, y, tile, p.rot, stand);
+        if (img) drawMounted(g, img, x, y, tile, p.rot, stand.in, stand.side);
         /* paint the belt's arrow out straight away, before anything else in
          * the square is drawn over it */
         if (host && p === belt) maskBeltArrow(g, beltWindow(host.file), belt, x, y, tile);
         if (p === host) drawBeltWindow(g, p, belt, x, y, tile, resolve);
         drawSubmerge(g, cell, p, x, y, tile, resolve);
-        if (p.phases && p.phases.length) numbers.push([p, x, y, belt, stand]);
+        if (p.phases && p.phases.length) numbers.push([p, x, y, belt, stand.in]);
         if (p.route) drawExitBadges(g, p, x, y, tile, resolve);
       }
     }
@@ -1233,10 +1247,17 @@ function placeAssembly(c, r, entry) {
     return false;
   }
   const tag = 'a' + (++assemblyTag);
-  addToCell(cellAt(c, r), { file, rot: 0, asm: tag });
+  /* take whatever the brush is set to — phases and the rest — but lay the
+   * pieces out unturned, then turn the whole thing to the facing asked for */
+  const piece = placement(entry);
+  const turns = piece.rot;
+  piece.rot = 0;
+  piece.asm = tag;
+  addToCell(cellAt(c, r), piece);
   for (const [dc, dr, part] of parts) {
     addToCell(cellAt(c + dc, r + dr), { file: part, rot: 0, asm: tag });
   }
+  for (let i = 0; i < turns; i++) rotateAssembly(c, r, tag, 1);
   return true;
 }
 
@@ -1716,16 +1737,16 @@ function choiceRow(label, values, get, set) {
  * one way or none at all, so the sides are a single choice; clicking the side
  * already chosen takes the phase off the element again.
  */
-function exitChooser(phase, placement, route) {
+function exitChooser(phase, p, route) {
   const box = document.createElement('div');
   box.className = 'phases';
   const lbl = document.createElement('span');
   lbl.textContent = 'Phase ' + phase;
   box.appendChild(lbl);
 
-  for (const rel of [0, 1, 2, 3]) {
+  for (const rel of distributorExits(p.file)) {
     const b = document.createElement('button');
-    b.textContent = FACING[(rel + placement.rot) % 4];
+    b.textContent = FACING[(rel + p.rot) % 4];
     b.className = route[phase] === rel ? 'on' : '';
     b.title = 'Phase ' + phase + ' sends a robot out this side';
     b.addEventListener('click', () => {
