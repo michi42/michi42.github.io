@@ -6,7 +6,7 @@
  * export is just the same draw routine at 150 px per square.
  */
 import {
-  TILE_PX, EDGE_N, DIR_STEP, PHASES,
+  TILE_PX, EDGE_N, EDGE_S, EDGE_W, EDGE_E, DIR_STEP, PHASES,
   beamGraphic, emitterBarrels, rotForEdges,
 } from './elements.js';
 import {
