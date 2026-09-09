@@ -78,6 +78,8 @@ export class Element {
    * hidden     shipped and drawable, but not offered in the palette
    * randomRot  placed at a random quarter-turn when the facing is Auto
    * label      what the palette calls it; a readable form of the name if unset
+   * order      groups a family within its palette group; entries with the same
+   *            order are offered by name
    */
   static defaults = {
     category: 'Other',
@@ -88,6 +90,7 @@ export class Element {
     hidden: false,
     randomRot: false,
     label: null,
+    order: 0,            // where it sits in its palette group, before its name
 
     /* properties a placement can carry, and what the element needs to draw them */
     phases: null,        // {badge, anchor, stack, shadow} — register phases
@@ -215,6 +218,15 @@ export class Conveyor extends Overlay {
  */
 export class Distributor extends Conveyor {
   static defaults = { category: 'Conveyor distributors' };
+}
+
+/*
+ * Water, sludge and lava carry a robot the way a belt does, so a flow takes the
+ * same slot as a conveyor — a square is one or the other — while being offered
+ * in a group of its own.
+ */
+export class Flow extends Conveyor {
+  static defaults = { category: 'Flows' };
 }
 
 export class Ramp extends Overlay {

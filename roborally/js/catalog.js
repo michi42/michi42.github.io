@@ -14,8 +14,8 @@
 import {
   ASSET_DIR, EDGE_N, EDGE_E, EDGE_S, EDGE_W, PHASES,
   Element, Floor, Overlay, Conveyor, Distributor, Ramp, Gear, Pit, Teleporter,
-  Station, Decal, Hazard, Wall, Ledge, WallJoin, Cannon, Mirror, Lettering,
-  WallPortal,
+  Station, Decal, Flow, Hazard, Wall, Ledge, WallJoin, Cannon, Mirror,
+  Lettering, WallPortal,
 } from './elements.js';
 
 /* ------------------------------------------------------------------ *
@@ -98,10 +98,18 @@ define(Conveyor, [
   'Red', 'Red_TL', 'Red_TR', 'Red_JL', 'Red_JR', 'Red_JB', 'Red_J3', 'Red_Start',
   'Gold', 'Gold_TL', 'Gold_TR', 'Gold_JL', 'Gold_JR',
   'Green', 'GreenA', 'GreenB', 'Green_TL', 'Green_TR',
+]);
+define(Conveyor, { Variable: { label: 'Belt — variable speed' } });
+
+/* ------------------------------------------------------------------ *
+ * Flows                                                               *
+ * ------------------------------------------------------------------ */
+
+/* the ordinary water currents, drawn with a solid arrow */
+define(Flow, [
   'Water_Current1', 'Water_Current2', 'Water_Current_L', 'Water_Current_R',
   'Water_Current_JL', 'Water_Current_JR',
 ]);
-define(Conveyor, { Variable: { label: 'Belt — variable speed' } });
 
 /*
  * The currents the dump has no artwork for, lifted off printed boards by
@@ -113,14 +121,17 @@ define(Conveyor, { Variable: { label: 'Belt — variable speed' } });
  * diagonal splashes too loose to read on a square board, and the circle that
  * marks where a flow starts where the printed one cannot be keyed cleanly.
  */
-define(Conveyor, [
+define(Flow, [
   'Water_Current_Fast1', 'Water_Current_Fast2',
   'Water_Current_Fast_L', 'Water_Current_Fast_R',
   'Water_Current_Fast_JL', 'Water_Current_Fast_JR',
-  'Waste_Current_Start', 'Waste_Current1', 'Waste_Current2',
-  'Waste_Current_L', 'Waste_Current_R',
-  'Lava_Flow_Start', 'Lava_Flow1', 'Lava_Flow2', 'Lava_Flow_L', 'Lava_Flow_R',
-]);
+], { order: 1 });                             // after the slow ones they match
+
+define(Flow, ['Waste_Current_Start', 'Waste_Current1', 'Waste_Current2',
+              'Waste_Current_L', 'Waste_Current_R'], { order: 2 });
+
+define(Flow, ['Lava_Flow_Start', 'Lava_Flow1', 'Lava_Flow2',
+              'Lava_Flow_L', 'Lava_Flow_R'], { order: 3 });
 
 /* the crushers with a belt baked in are drawn by dropping a crusher on a
  * conveyor, and the gold "special" belts are the plain ones redrawn */
@@ -388,6 +399,11 @@ define(Hazard, {
 });
 
 define(Hazard, { Spikes: { mounts: [EDGE_S] } });
+
+/* a randomizer spins a robot's cards, which is a hazard rather than a repair.
+ * Its shadow is a property of it now, so the tile is not offered on its own. */
+define(Hazard, { Randomizer: { shadow: 'Randomizer_Shadow' } });
+defineHidden(Hazard, ['Randomizer_Shadow']);
 define(Hazard, {
   Wall_PT: {
     label: 'Piston wall', mounts: [EDGE_S], blocks: [EDGE_S], depth: 24,
@@ -456,11 +472,9 @@ define(Station, ['Spanner', 'Double_Spanner', 'Chop_Shop', 'Reset'],
   { submerges: true });
 define(Station, ['Energizer', 'Jack', 'Finish',
                  'Padded_Green_Double_Spanner', 'Padded_Orange_Double_Spanner']);
-define(Station, { Randomizer: { shadow: 'Randomizer_Shadow' } });
-
-/* the shadow is a property of the randomizer now, and the water is washed back
- * over a repair site standing in it instead of a tile of its own */
-defineHidden(Station, ['Randomizer_Shadow', 'Water_Double_Spanner']);
+/* the water is washed back over a repair site standing in it instead of a tile
+ * of its own */
+defineHidden(Station, ['Water_Double_Spanner']);
 
 /* Lettering for a board title: it carries words rather than a graphic. The name
  * begins with @ so it can never collide with a file in assets/. */
@@ -516,6 +530,7 @@ export const CATEGORIES = [
   'Floors',
   'Conveyors',
   'Conveyor distributors',
+  'Flows',
   'Ramps',
   'Gears',
   'Walls & ledges',
@@ -830,10 +845,14 @@ const TEXT_ENTRY = (() => {
   return e;
 })();
 
-/* One swatch per element the catalog offers, by name within its group. */
+/*
+ * One swatch per element the catalog offers, by name within its group — unless
+ * its definition gives it an `order`, which keeps a family together where the
+ * names alone would interleave it with another.
+ */
 const RAW_ENTRIES = [...REGISTRY.values()]
   .filter(el => !el.hidden && el.name !== TEXT_FILE)
-  .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+  .sort((a, b) => (a.order - b.order) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
   .map(el => entry({
     id: 'file:' + el.name,
     label: prettyLabel(el.name),
