@@ -145,18 +145,26 @@ function eachPlacement(fn) {
   }
 }
 
-/** Build a placement for `entry`, honouring the facing and phase selectors. */
+/*
+ * Build a placement for `entry`. Which properties it carries comes from the
+ * element's definition, and each is taken from the field of the brush that
+ * property names — so an element gains a property by being defined with one.
+ */
 function placement(entry) {
   const file = entry.files[(Math.random() * entry.files.length) | 0];
   let rot;
   if (state.rotMode === 'auto') rot = entry.randomRot ? (Math.random() * 4) | 0 : 0;
   else rot = state.rotMode;
   const p = { file, rot };
-  if (entry.distributor) p.route = {};
-  if (entry.phased) p.phases = [...state.phases];
-  if (entry.text) p.text = state.text;
-  if (shadowFor(file) && state.shadow) p.shadow = true;
-  if (emitterSpec(file)) p.count = state.beams;
+  for (const spec of propertiesOf(file)) {
+    if (!spec.brush) {                          // set on the placement, not the brush
+      if (spec.ui === 'route') p.route = {};
+      continue;
+    }
+    const v = state[spec.brush];
+    if (spec.ui === 'flag' && !v) continue;     // an unticked box leaves no trace
+    p[spec.prop] = Array.isArray(v) ? [...v] : v;
+  }
   return p;
 }
 
@@ -256,14 +264,14 @@ function autoPieces(kind, edges, c, r) {
   };
 
   const single = e => ({
-    file: openVariant(set, set.one, carries(e, (e + 1) % 4), carries(e, (e + 3) % 4)),
+    file: openVariant(set.one, carries(e, (e + 1) % 4), carries(e, (e + 3) % 4)),
     rot: (e + 2) % 4,
   });
   const corner = (a, b) => {
     const rot = rotForEdges([2, 3], [a, b]);
     const upright = (3 + rot) % 4, flat = (2 + rot) % 4;
     return {
-      file: openVariant(set, set.corner,
+      file: openVariant(set.corner,
                         carries(upright, (upright + 1) % 4),
                         carries(flat, (flat + 3) % 4)),
       rot,
@@ -271,7 +279,7 @@ function autoPieces(kind, edges, c, r) {
   };
   const three = missing => {
     const open = carries((3 + missing) % 4, missing) || carries((1 + missing) % 4, missing);
-    return { file: openVariant(set, set.three, open, open), rot: missing };
+    return { file: openVariant(set.three, open, open), rot: missing };
   };
 
   if (es.length === 1) return [...nubs, single(es[0])];
@@ -1990,20 +1998,18 @@ function renderBrush() {
       + 'are printed against the side they send it out of.';
     box.appendChild(hint);
   }
-  if (e.text) {
-    box.appendChild(textRow(() => state.text, v => { state.text = v; }));
-  }
-  if (e.phased) box.appendChild(phaseChooser(() => state.phases, setPhases));
-  if (shadowFor(e.files[0])) {
-    box.appendChild(optionRow('Drop shadow',
-      () => state.shadow,
-      v => { state.shadow = v; renderBrush(); }));
-  }
-  const emitter = e.emitter && emitterSpec(e.files[0]);
-  if (emitter && emitter.max > 1) {
-    box.appendChild(choiceRow('Beams', [1, 2, 3],
-      () => state.beams,
-      v => { state.beams = v; renderBrush(); }));
+  /* one row per property the element carries, over the field of the brush it
+   * is taken from; a distributor's routing is set on the placement instead */
+  for (const spec of e.props) {
+    const set = v => { state[spec.brush] = v; renderBrush(); };
+    if (spec.ui === 'phases') box.appendChild(phaseChooser(() => state.phases, setPhases));
+    else if (spec.ui === 'flag') {
+      box.appendChild(optionRow(spec.label, () => state[spec.brush], set));
+    } else if (spec.ui === 'choice') {
+      box.appendChild(choiceRow(spec.label, spec.values, () => state[spec.brush], set));
+    } else if (spec.ui === 'text') {
+      box.appendChild(textRow(() => state[spec.brush], v => { state[spec.brush] = v; }));
+    }
   }
 }
 
@@ -2030,6 +2036,36 @@ function describeCell(c, r) {
              + ' facing ' + FACING[top.rot]
              + (top.phases ? ', phases ' + (top.phases.join(', ') || 'none') : '')
            : '');
+}
+
+/*
+ * The editable properties of one element on a square, taken from its
+ * definition: the phases it fires in, where a distributor sends each phase, a
+ * drop shadow, how many beams a cannon casts, the words a title carries.
+ */
+function cellProperties(box, p) {
+  for (const spec of propertiesOf(p.file)) {
+    const change = v => { pushUndo(); p[spec.prop] = v; afterChange(); };
+    if (spec.ui === 'phases') {
+      box.appendChild(phaseChooser(() => p.phases || [], change));
+    } else if (spec.ui === 'route') {
+      const route = p.route || (p.route = {});
+      for (const n of PHASES) box.appendChild(exitChooser(n, p, route));
+    } else if (spec.ui === 'flag') {
+      box.appendChild(optionRow(spec.label, () => !!p[spec.prop], change));
+    } else if (spec.ui === 'choice') {
+      box.appendChild(choiceRow(spec.label, spec.values,
+        () => p[spec.prop] || spec.fallback, change));
+    } else if (spec.ui === 'text') {
+      let held = false;                     // one undo step per burst of typing
+      box.appendChild(textRow(() => p[spec.prop] || '', v => {
+        if (!held) { pushUndo(); held = true; }
+        p[spec.prop] = v;
+        scheduleRender();
+        autosave();
+      }));
+    }
+  }
 }
 
 function renderCellInfo() {
@@ -2091,39 +2127,7 @@ function renderCellInfo() {
     el.append(img, nm, turn(-1), turn(1), del);
     box.appendChild(el);
 
-    if (row.p.file === TEXT_FILE) {
-      let held = false;                     // one undo step per burst of typing
-      box.appendChild(textRow(
-        () => row.p.text || '',
-        v => {
-          if (!held) { pushUndo(); held = true; }
-          row.p.text = v;
-          scheduleRender();
-          autosave();
-        }));
-    }
-    if (phaseSpec(row.p.file)) {
-      box.appendChild(phaseChooser(
-        () => row.p.phases || [],
-        next => { pushUndo(); row.p.phases = next; afterChange(); }));
-    }
-    if (isDistributor(row.p.file)) {
-      const route = row.p.route || (row.p.route = {});
-      for (const n of PHASES) {
-        box.appendChild(exitChooser(n, row.p, route));
-      }
-    }
-    if (shadowFor(row.p.file)) {
-      box.appendChild(optionRow('Drop shadow',
-        () => !!row.p.shadow,
-        v => { pushUndo(); row.p.shadow = v; afterChange(); }));
-    }
-    const gun = emitterSpec(row.p.file);
-    if (gun && gun.max > 1) {
-      box.appendChild(choiceRow('Beams', [1, 2, 3],
-        () => row.p.count || 1,
-        v => { pushUndo(); row.p.count = v; afterChange(); }));
-    }
+    cellProperties(box, row.p);
   }
 }
 

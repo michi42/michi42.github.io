@@ -210,7 +210,7 @@ ul.help b { color: var(--text); font-weight: 600; }
 }
 .phases button.on { background: var(--accent-d); border-color: var(--accent); color: #fff; }
 
-.layer + .phases { margin: -1px 0 7px 38px; }
+.layer + .phases, .phases + .phases { margin: -1px 0 7px 38px; }
 
 .opts { margin: 4px 0 8px; }
 .opts label { cursor: pointer; }
