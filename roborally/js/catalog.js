@@ -15,6 +15,7 @@ import {
   ASSET_DIR, EDGE_N, EDGE_E, EDGE_S, EDGE_W, PHASES,
   Element, Floor, Overlay, Conveyor, Distributor, Ramp, Gear, Pit, Teleporter,
   Station, Decal, Hazard, Wall, Ledge, WallJoin, Cannon, Mirror, Lettering,
+  WallPortal,
 } from './elements.js';
 
 /* ------------------------------------------------------------------ *
@@ -75,6 +76,12 @@ define(Floor, {
   Radioactive_Waste: { label: 'Floor — toxic waste', category: 'Oil & waste' },
 });
 
+/*
+ * Lava, off Forge On by tools/extract_currents.py. Every printed lava square
+ * carries a flow arrow, so the plain tile is one with its arrow painted out.
+ */
+define(Floor, { Lava: { label: 'Floor — lava' } });
+
 /* one plain black floor is enough */
 defineHidden(Floor, ['Very_Black']);
 
@@ -95,6 +102,25 @@ define(Conveyor, [
   'Water_Current_JL', 'Water_Current_JR',
 ]);
 define(Conveyor, { Variable: { label: 'Belt — variable speed' } });
+
+/*
+ * The currents the dump has no artwork for, lifted off printed boards by
+ * tools/extract_currents.py: the fast water currents, drawn with an outline
+ * arrow where the ordinary ones have a solid one, the flow through radioactive
+ * sludge, and the flow through lava. What a board does not carry is made from
+ * what it does — a mirrored arrow for the turn that goes the other way, a turn
+ * swept round from a straight arrow where the printed ones are painted as
+ * diagonal splashes too loose to read on a square board, and the circle that
+ * marks where a flow starts where the printed one cannot be keyed cleanly.
+ */
+define(Conveyor, [
+  'Water_Current_Fast1', 'Water_Current_Fast2',
+  'Water_Current_Fast_L', 'Water_Current_Fast_R',
+  'Water_Current_Fast_JL', 'Water_Current_Fast_JR',
+  'Waste_Current_Start', 'Waste_Current1', 'Waste_Current2',
+  'Waste_Current_L', 'Waste_Current_R',
+  'Lava_Flow_Start', 'Lava_Flow1', 'Lava_Flow2', 'Lava_Flow_L', 'Lava_Flow_R',
+]);
 
 /* the crushers with a belt baked in are drawn by dropping a crusher on a
  * conveyor, and the gold "special" belts are the plain ones redrawn */
@@ -402,6 +428,20 @@ define(Teleporter, [
   'Portal_Grey', 'Portal_Lilac', 'Portal_Orange', 'Portal_Pink', 'Portal_Purple',
   'Portal_Red', 'Portal_Yellow',
 ], { shadow: 'Portal_Shadow' });
+
+/*
+ * A portal bolted to the edge of a square rather than lying on the floor: a lit
+ * bar in a bracket, which pairs with the floor portal of the same colour. One is
+ * lifted off Propagation by tools/extract_wall_portal.py and the rest coloured
+ * from it. A wall on the same edge stands it off, which is how the printed
+ * boards show one where a wall is already there.
+ */
+define(WallPortal, [
+  'Wall_Portal_Black', 'Wall_Portal_Blue', 'Wall_Portal_Brown',
+  'Wall_Portal_Cyan', 'Wall_Portal_Green', 'Wall_Portal_Grey',
+  'Wall_Portal_Lilac', 'Wall_Portal_Orange', 'Wall_Portal_Pink',
+  'Wall_Portal_Purple', 'Wall_Portal_Red', 'Wall_Portal_Yellow',
+], { mounts: [EDGE_S] });
 
 /* a portal draws its own shadow and a magnet casts its own pull.
  * `Portal_Shadow2`, a softer version of the same shadow, is left unused. */

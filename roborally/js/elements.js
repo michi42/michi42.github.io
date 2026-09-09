@@ -233,6 +233,16 @@ export class Teleporter extends Overlay {
   static defaults = { category: 'Teleporters', slotKey: 'warp', z: 40 };
 }
 
+/*
+ * A portal bolted to the edge of a square rather than lying on its floor. It
+ * takes a slot per facing, so a square can carry one on each side, and is drawn
+ * after the walls: where a wall shares its edge the portal rests on its face,
+ * the way the printed boards show it.
+ */
+export class WallPortal extends Teleporter {
+  static defaults = { slotKey: 'wallportal', z: 84, perFacing: true };
+}
+
 export class Station extends Overlay {
   static defaults = { category: 'Repair & special', slotKey: 'station', z: 50 };
 }
