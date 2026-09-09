@@ -7,7 +7,7 @@
  */
 import {
   TILE_PX, EDGE_N, EDGE_S, EDGE_W, EDGE_E, DIR_STEP, PHASES,
-  beamGraphic, emitterBarrels, rotForEdges,
+  beamGraphic, beamGraphics, emitterBarrels, rotForEdges,
 } from './elements.js';
 import {
   AUTO_AREAS, AUTO_SETS, ENTRIES, ENTRY_BY_ID, EXIT_INSET, OIL_FLIPPED,
