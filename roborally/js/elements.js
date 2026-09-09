@@ -13,10 +13,8 @@
  * arrows leave the tile at the top edge, walls and pushers sit on the bottom
  * edge), so a placement is a name plus a count of quarter-turns clockwise.
  */
-'use strict';
-
-const TILE_PX = 150;          // native size of every element graphic
-const ASSET_DIR = 'assets/';
+export const TILE_PX = 150;          // native size of every element graphic
+export const ASSET_DIR = 'assets/';
 
 /*
  * Directions and tile edges share one encoding: 0 north, 1 east, 2 south,
@@ -24,18 +22,18 @@ const ASSET_DIR = 'assets/';
  * edge 2, and turning a placement by `rot` quarter-turns clockwise moves each of
  * its edges on by the same amount.
  */
-const EDGE_N = 0, EDGE_E = 1, EDGE_S = 2, EDGE_W = 3;
-const DIR_STEP = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+export const EDGE_N = 0, EDGE_E = 1, EDGE_S = 2, EDGE_W = 3;
+export const DIR_STEP = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 
 /** The five register phases a board element can be set to fire in. */
-const PHASES = [1, 2, 3, 4, 5];
+export const PHASES = [1, 2, 3, 4, 5];
 
 /*
  * The angled mirrors turn a beam through 90 degrees. An angled mirror fills the
  * bottom-left corner of its tile, so its face lies on the north-west to
  * south-east diagonal; a quarter-turn flips that to the other diagonal.
  */
-const MIRROR_TURNS = [
+export const MIRROR_TURNS = [
   [EDGE_W, EDGE_S, EDGE_E, EDGE_N],   // north-west to south-east: north turns west
   [EDGE_E, EDGE_N, EDGE_W, EDGE_S],   // north-east to south-west: north turns east
 ];
@@ -68,7 +66,7 @@ function classDefaults(cls) {
  * The base element                                                    *
  * ------------------------------------------------------------------ */
 
-class Element {
+export class Element {
   /*
    * category   the palette group it is offered in
    * layer      'floor' replaces the square's base image, 'overlay' stacks on it
@@ -190,7 +188,7 @@ class Element {
 
 /* The base image of a square. Loose floor tiles look better scattered, so they
  * are laid at a random quarter-turn. */
-class Floor extends Element {
+export class Floor extends Element {
   static defaults = { category: 'Floors', layer: 'floor', randomRot: true };
 }
 
@@ -200,11 +198,11 @@ class Floor extends Element {
 
 /* Anything that stacks on a floor. The drawing order runs belts and pits
  * first, then the machinery, then the walls, then the beams over everything. */
-class Overlay extends Element {
+export class Overlay extends Element {
   static defaults = { layer: 'overlay' };
 }
 
-class Conveyor extends Overlay {
+export class Conveyor extends Overlay {
   static defaults = { category: 'Conveyors', slotKey: 'belt', z: 10 };
 }
 
@@ -215,35 +213,35 @@ class Conveyor extends Overlay {
  * robot leaves by — which is how the printed boards show them. `exits` are held
  * as drawn and turn with the tile.
  */
-class Distributor extends Conveyor {
+export class Distributor extends Conveyor {
   static defaults = { category: 'Conveyor distributors' };
 }
 
-class Ramp extends Overlay {
+export class Ramp extends Overlay {
   static defaults = { category: 'Ramps', slotKey: 'ramp', z: 82, perFacing: true };
 }
 
-class Gear extends Overlay {
+export class Gear extends Overlay {
   static defaults = { category: 'Gears', slotKey: 'gear', z: 30 };
 }
 
-class Pit extends Overlay {
+export class Pit extends Overlay {
   static defaults = { category: 'Pits (custom)', slotKey: 'pit', z: 20 };
 }
 
-class Teleporter extends Overlay {
+export class Teleporter extends Overlay {
   static defaults = { category: 'Teleporters', slotKey: 'warp', z: 40 };
 }
 
-class Station extends Overlay {
+export class Station extends Overlay {
   static defaults = { category: 'Repair & special', slotKey: 'station', z: 50 };
 }
 
-class Decal extends Overlay {
+export class Decal extends Overlay {
   static defaults = { category: 'Oil & waste', slotKey: 'decal', z: 60 };
 }
 
-class Hazard extends Overlay {
+export class Hazard extends Overlay {
   static defaults = { category: 'Pushers & hazards', slotKey: 'hazard', z: 70,
                       perFacing: true };
 }
@@ -254,7 +252,7 @@ class Hazard extends Overlay {
  * to the same edge is moved in by that much so it rests on the wall's face
  * instead of sinking into it.
  */
-class Wall extends Overlay {
+export class Wall extends Overlay {
   static defaults = { category: 'Walls & ledges', slotKey: 'wall', z: 80,
                       perFacing: true, blocks: [EDGE_S], depth: 24 };
 }
@@ -264,23 +262,23 @@ class Wall extends Overlay {
  * at it, so it stops a beam trying to leave that square across it but not one
  * coming the other way.
  */
-class Ledge extends Wall {
+export class Ledge extends Wall {
   static defaults = { blocks: [], stops: [EDGE_S], depth: 27 };
 }
 
 /* A nodule bridges two runs meeting at a corner. It covers too little of the
  * edge to stop anything. */
-class WallJoin extends Wall {
+export class WallJoin extends Wall {
   static defaults = { blocks: [], stops: [], depth: 0 };
 }
 
-class Cannon extends Overlay {
+export class Cannon extends Overlay {
   static defaults = { category: 'Lasers', slotKey: 'laser', z: 90, perFacing: true };
 }
 
 /* A mirror is a fitting in the square rather than a gun bolted to the wall, so
  * it takes a slot of its own and can share a square with a laser cannon. */
-class Mirror extends Cannon {
+export class Mirror extends Cannon {
   static defaults = { slotKey: 'mirror', z: 85 };
 }
 
@@ -288,7 +286,7 @@ class Mirror extends Cannon {
  * Lettering is not a graphic at all: the placement carries the words and the
  * editor sets them. A board's title is printed over everything else.
  */
-class Lettering extends Overlay {
+export class Lettering extends Overlay {
   static defaults = { category: 'Repair & special', slotKey: 'text', z: 95,
                       lettering: true };
 }
@@ -298,11 +296,11 @@ class Lettering extends Overlay {
  * ------------------------------------------------------------------ */
 
 /** Every graphic an emitter's beam can use, and the one for its `i`th square. */
-function beamGraphics(spec) {
+export function beamGraphics(spec) {
   return Array.isArray(spec.beam) ? spec.beam : [spec.beam];
 }
 
-function beamGraphic(spec, i) {
+export function beamGraphic(spec, i) {
   const all = beamGraphics(spec);
   return all[i % all.length];
 }
@@ -312,7 +310,7 @@ function beamGraphic(spec, i) {
  * goes, square to the way it fires; `shift` is how far the graphic has to move
  * from where it was drawn to sit under it.
  */
-function emitterBarrels(spec, count) {
+export function emitterBarrels(spec, count) {
   if (!spec.mounts) return [{ mount: null, off: 0, shift: 0 }];
   const at = (i, off) => ({ mount: spec.mounts[i], off, shift: off - spec.baked[i] });
   const n = Math.max(1, Math.min(spec.max, count || 1));
@@ -324,7 +322,7 @@ function emitterBarrels(spec, count) {
 }
 
 /** The quarter-turn that puts `base`'s edges onto `target`, or null. */
-function rotForEdges(base, target) {
+export function rotForEdges(base, target) {
   const want = [...target].sort().join();
   for (let k = 0; k < 4; k++) {
     if (base.map(e => (e + k) % 4).sort().join() === want) return k;

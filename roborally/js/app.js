@@ -5,7 +5,19 @@
  * counts quarter-turns clockwise. Everything is drawn to a <canvas>, so the
  * export is just the same draw routine at 150 px per square.
  */
-'use strict';
+import {
+  TILE_PX, EDGE_N, DIR_STEP, PHASES,
+  beamGraphic, emitterBarrels, rotForEdges,
+} from './elements.js';
+import {
+  AUTO_AREAS, AUTO_SETS, ENTRIES, ENTRY_BY_ID, EXIT_INSET, OIL_FLIPPED,
+  OIL_SLICK, PALETTE, TEXT_FILE,
+  assemblyOf, assemblySquares, assetUrl, beltWindow, blockedEdges,
+  distributorExits, emitterSpec, entryForFile, exitBadge, isDistributor,
+  kindOfFile, mirrorTurn, mountBases, oilVariant, openVariant, phaseBadge,
+  phaseSpec, prettyLabel, propertiesOf, shadowFor, slotOf, submergedBy,
+  wallDepth, zIndexOf,
+} from './catalog.js';
 
 /* ------------------------------------------------------------------ *
  * Image cache                                                         *
@@ -2399,3 +2411,34 @@ if (restored) {
   newBoard(12, 12);
   setStatus('New 12×12 board. Pick an element on the left and click the board.');
 }
+
+/* ------------------------------------------------------------------ *
+ * What the editor offers                                              *
+ * ------------------------------------------------------------------ */
+
+/*
+ * This module is the page's entry point: the browser loads it and it wires
+ * itself up, so nothing in the page imports it. The names below are what the
+ * editor can be driven by from outside — which is how the test suites work it,
+ * rather than reaching for globals.
+ */
+export {
+  /* the page and the board it holds */
+  state, els, canvas, newBoard, resizeBoard, clearCell, fillFloor, addToCell,
+  sortItems, topOf, eachPlacement, placement, placementFiles,
+
+  /* saving, loading and the undo history */
+  snapshot, restore, loadJSON, pushUndo, undo, redo, undoStack, restored,
+  afterChange, autosave,
+
+  /* the tools */
+  applyTool, setTool, setRotMode, paint, eraseTop, rotateTop, paintEdge,
+  paintPit, paintOil, isPit, isOil, nearestEdge, standOff, lastWheel,
+
+  /* drawing */
+  images, loadImage, drawTiles, traceAllBeams, badgeFrame, beltTone, beltTones,
+  backdrop, setBackdrop, textLayout, TEXT_FONT, TEXT_MAX, TEXT_LEAD, TEXT_FIT,
+
+  /* the panels */
+  buildPalette, selectEntry, renderBrush, renderCellInfo, setPhases,
+};

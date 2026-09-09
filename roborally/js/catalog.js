@@ -11,13 +11,17 @@
  * beam, a shadow, the far half of a long flame) are defined too, marked
  * `hidden` so they stay out of the palette while remaining drawable.
  */
-'use strict';
+import {
+  ASSET_DIR, EDGE_N, EDGE_E, EDGE_S, EDGE_W, PHASES,
+  Element, Floor, Overlay, Conveyor, Distributor, Ramp, Gear, Pit, Teleporter,
+  Station, Decal, Hazard, Wall, Ledge, WallJoin, Cannon, Mirror, Lettering,
+} from './elements.js';
 
 /* ------------------------------------------------------------------ *
  * The registry                                                        *
  * ------------------------------------------------------------------ */
 
-const REGISTRY = new Map();
+export const REGISTRY = new Map();
 
 /*
  * Define elements of one class. `spec` is either a list of names, for elements
@@ -107,7 +111,7 @@ defineHidden(Conveyor, ['Red_JL_Crusher_24', 'Red_JL_Crusher_3',
  * edge, EXIT_INSET in from it.
  */
 const EXIT_BADGE = 'Multi_#';
-const EXIT_INSET = 20;
+export const EXIT_INSET = 20;
 
 define(Distributor, {
   Multi_Blue_UL:  { exits: [EDGE_N, EDGE_W] },
@@ -420,7 +424,7 @@ defineHidden(Station, ['Randomizer_Shadow', 'Water_Double_Spanner']);
 
 /* Lettering for a board title: it carries words rather than a graphic. The name
  * begins with @ so it can never collide with a file in assets/. */
-const TEXT_FILE = '@Text';
+export const TEXT_FILE = '@Text';
 define(Lettering, { [TEXT_FILE]: { label: 'Text' } });
 
 /* ------------------------------------------------------------------ *
@@ -465,10 +469,10 @@ defineHidden(Pit, numbered('Pit_#'));
  * ------------------------------------------------------------------ */
 
 /** Every graphic the catalog defines, the drawn-not-loaded lettering aside. */
-const FILES = [...REGISTRY.keys()].filter(name => name !== TEXT_FILE).sort();
+export const FILES = [...REGISTRY.keys()].filter(name => name !== TEXT_FILE).sort();
 
 /** Palette groups, in the order they are shown. */
-const CATEGORIES = [
+export const CATEGORIES = [
   'Floors',
   'Conveyors',
   'Conveyor distributors',
@@ -489,7 +493,7 @@ const CATEGORIES = [
  * of a category shares one, since both come from its class. Floors take no
  * overlay slot, so they are left out.
  */
-const KINDS = (() => {
+export const KINDS = (() => {
   const out = {};
   for (const el of REGISTRY.values()) {
     if (el.layer === 'floor') continue;
@@ -499,7 +503,7 @@ const KINDS = (() => {
 })();
 
 /* Register phases by element, for the panels that offer them. */
-const PHASED = (() => {
+export const PHASED = (() => {
   const out = {};
   for (const el of REGISTRY.values()) if (el.phases) out[el.name] = el.phases;
   return out;
@@ -514,48 +518,48 @@ const PHASED = (() => {
 const UNKNOWN = new Element('?');
 
 /** The definition of `file`; every drawable graphic has one. */
-function elementOf(file) { return REGISTRY.get(file) || UNKNOWN; }
+export function elementOf(file) { return REGISTRY.get(file) || UNKNOWN; }
 
-function categoryOf(file) { return elementOf(file).category; }
-function layerOf(file) { return elementOf(file).layer; }
-function zIndexOf(file) { return elementOf(file).z; }
-function kindOfFile(file) {
+export function categoryOf(file) { return elementOf(file).category; }
+export function layerOf(file) { return elementOf(file).layer; }
+export function zIndexOf(file) { return elementOf(file).z; }
+export function kindOfFile(file) {
   const el = elementOf(file);
   return { key: el.slotKey, z: el.z, perFacing: el.perFacing };
 }
 
 /** Which of a square's overlay slots this placement occupies. */
-function slotFor(file, rot) { return elementOf(file).slot(rot); }
+export function slotFor(file, rot) { return elementOf(file).slot(rot); }
 
 /* Runs of wall laid by the auto tool are managed as a set rather than one at a
  * time, so each piece keeps a slot of its own instead of evicting its siblings.
  */
-function slotOf(p) {
+export function slotOf(p) {
   return p.auto ? 'auto-' + p.auto + ':' + p.file + ':' + p.rot : slotFor(p.file, p.rot);
 }
 
-function phaseSpec(file) { return elementOf(file).phases; }
-function phaseBadge(file, n) { return elementOf(file).phaseBadge(n); }
-function exitBadge(n) { return EXIT_BADGE.replace('#', n); }
+export function phaseSpec(file) { return elementOf(file).phases; }
+export function phaseBadge(file, n) { return elementOf(file).phaseBadge(n); }
+export function exitBadge(n) { return EXIT_BADGE.replace('#', n); }
 
-function isDistributor(file) { return !!elementOf(file).exits; }
-function distributorExits(file) { return elementOf(file).exits || []; }
+export function isDistributor(file) { return !!elementOf(file).exits; }
+export function distributorExits(file) { return elementOf(file).exits || []; }
 
-function assemblyOf(file) { return elementOf(file).parts; }
-function assemblySquares(file) { return elementOf(file).squares(); }
+export function assemblyOf(file) { return elementOf(file).parts; }
+export function assemblySquares(file) { return elementOf(file).squares(); }
 
-function emitterSpec(file) { return elementOf(file).emitter; }
-function shadowFor(file) { return elementOf(file).shadow; }
-function beltWindow(file) { return elementOf(file).window; }
+export function emitterSpec(file) { return elementOf(file).emitter; }
+export function shadowFor(file) { return elementOf(file).shadow; }
+export function beltWindow(file) { return elementOf(file).window; }
 
 /** The properties a placement of `file` can carry, for the Brush and Cell panels. */
-function propertiesOf(file) { return elementOf(file).properties(); }
+export function propertiesOf(file) { return elementOf(file).properties(); }
 
-function blockedEdges(file, rot) { return elementOf(file).blockedEdges(rot); }
-function wallDepth(file) { return elementOf(file).depth; }
-function mountBases(file) { return elementOf(file).mounts; }
-function mountEdge(file, rot) { return elementOf(file).mountEdge(rot); }
-function mirrorTurn(file, rot) { return elementOf(file).mirrorTurn(rot); }
+export function blockedEdges(file, rot) { return elementOf(file).blockedEdges(rot); }
+export function wallDepth(file) { return elementOf(file).depth; }
+export function mountBases(file) { return elementOf(file).mounts; }
+export function mountEdge(file, rot) { return elementOf(file).mountEdge(rot); }
+export function mirrorTurn(file, rot) { return elementOf(file).mirrorTurn(rot); }
 
 /*
  * A repair site, workshop or reset point standing in water has the water washed
@@ -563,10 +567,10 @@ function mirrorTurn(file, rot) { return elementOf(file).mirrorTurn(rot); }
  * `Water_Double_Spanner` tile shows — rather than needing a separate graphic
  * for every combination.
  */
-const SUBMERGE = { alpha: 0.35 };
+export const SUBMERGE = { alpha: 0.35 };
 
 /** The wash to draw back over `file`, or null if it is not standing in water. */
-function submergedBy(floorFile, file) {
+export function submergedBy(floorFile, file) {
   return floorFile && elementOf(floorFile).washes && elementOf(file).submerges
     ? SUBMERGE : null;
 }
@@ -581,7 +585,7 @@ function submergedBy(floorFile, file) {
  * themselves say which variant to use where a run carries on into the next
  * square.
  */
-const AUTO_SETS = {
+export const AUTO_SETS = {
   wall: {
     label: 'Wall',
     one: 'Wall', corner: 'Wall_L', three: 'Wall_U', ring: null,
@@ -595,7 +599,7 @@ const AUTO_SETS = {
 };
 
 /** The variant of `file` with the ends its neighbours carry on into uncapped. */
-function openVariant(file, left, right) {
+export function openVariant(file, left, right) {
   const v = elementOf(file).opens;
   if (!v) return file;
   const pick = left && right ? v[2] : left ? v[0] : right ? v[1] : null;
@@ -609,7 +613,7 @@ function openVariant(file, left, right) {
  * the tape — and `all` is the ready-made tile for a pit standing on its own.
  * Only the rim pieces are overlays.
  */
-const AUTO_AREAS = {
+export const AUTO_AREAS = {
   pit: {
     label: 'Pit', floor: 'Black',
     edge: 'Pit_Edge', corner: 'Pit_L', three: 'Pit_U', all: 'Pit',
@@ -641,7 +645,7 @@ const AUTO_AREAS = {
  * `Oil_T` joins on all four sides and `Oil_U` on three — so the shapes here were
  * read off the artwork instead. `base` is what each group joins as drawn.
  */
-const OIL_SLICK = {
+export const OIL_SLICK = {
   alone:    { base: [],           files: ['Oil_Splash', 'Oil_Splash2', 'Oil_Drop1', 'Oil_Drop2'] },
   end:      { base: [EDGE_N],     files: ['Oil_End1', 'Oil_End2', 'Oil_Stop1', 'Oil_Stop2'] },
   start:    { base: [EDGE_N],     files: ['Oil_Start1', 'Oil_Start2'] },
@@ -656,13 +660,13 @@ const OIL_SLICK = {
 
 /* `Oil_Stop*` join southwards where the others join north, so they are turned
  * half a circle to line up with the rest of their group. */
-const OIL_FLIPPED = new Set(['Oil_Stop1', 'Oil_Stop2']);
+export const OIL_FLIPPED = new Set(['Oil_Stop1', 'Oil_Stop2']);
 
 /*
  * Which of a group's tiles a square uses. Picking by position rather than at
  * random keeps a square looking the same as the trail is drawn around it.
  */
-function oilVariant(group, c, r) {
+export function oilVariant(group, c, r) {
   const files = OIL_SLICK[group].files;
   return files[Math.abs(c * 73856093 ^ r * 19349663) % files.length];
 }
@@ -684,7 +688,7 @@ const SUFFIX_WORDS = {
   W: 'with wall', PT: 'piston',
 };
 
-function prettyLabel(name) {
+export function prettyLabel(name) {
   const el = REGISTRY.get(name);
   if (el && el.label) return el.label;
   const parts = name.split('_');
@@ -708,7 +712,7 @@ function prettyLabel(name) {
  *   randomRot placements default to a random quarter-turn
  *   props     the properties a placement from this entry can carry
  */
-function entry(o) {
+export function entry(o) {
   const el = elementOf(o.files[0]);
   const one = o.files.length === 1;
   return {
@@ -799,16 +803,16 @@ const RAW_ENTRIES = [...REGISTRY.values()]
     randomRot: el.randomRot,
   }));
 
-const ENTRIES = [...SMART_ENTRIES, ...AUTO_ENTRIES, TEXT_ENTRY, ...RAW_ENTRIES];
-const ENTRY_BY_ID = new Map(ENTRIES.map(e => [e.id, e]));
+export const ENTRIES = [...SMART_ENTRIES, ...AUTO_ENTRIES, TEXT_ENTRY, ...RAW_ENTRIES];
+export const ENTRY_BY_ID = new Map(ENTRIES.map(e => [e.id, e]));
 
 /** Palette grouped for the sidebar, the handy entries first inside their group. */
-const PALETTE = CATEGORIES
+export const PALETTE = CATEGORIES
   .map(cat => ({ cat, entries: ENTRIES.filter(e => e.cat === cat) }))
   .filter(g => g.entries.length);
 
 /** The raw entry that placed `file`, for the eyedropper. */
-function entryForFile(file) { return ENTRY_BY_ID.get('file:' + file) || null; }
+export function entryForFile(file) { return ENTRY_BY_ID.get('file:' + file) || null; }
 
 /* ------------------------------------------------------------------ *
  * Graphics                                                            *
@@ -822,7 +826,7 @@ const TEXT_THUMB = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
   + ' text-anchor="middle" fill="#000">'
   + '<text x="75" y="68">BOARD</text><text x="75" y="104">TITLE</text></g></svg>');
 
-function assetUrl(file) {
+export function assetUrl(file) {
   if (file === TEXT_FILE) return TEXT_THUMB;
   return ASSET_DIR + file + '.png';
 }
