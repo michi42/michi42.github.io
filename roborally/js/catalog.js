@@ -231,6 +231,15 @@ define(Gear, {
   XGear_AC: { label: 'Cross gear — anti-clockwise', parts: XGEAR_WINGS },
 });
 
+/*
+ * A numbered platform: the platform itself, printed with a 1 on it, and the
+ * other four digits, which go on the other squares the platform covers. So a
+ * number is a thing you place rather than a property you set, and all five
+ * share the gears' slot — a square is one of them or another, and never a gear
+ * as well.
+ */
+define(Gear, ['Platform', 'Platform2', 'Platform3', 'Platform4', 'Platform5']);
+
 /* the wings and quarters come with their middles */
 defineHidden(Gear, [
   'XGear_N', 'XGear_E', 'XGear_S', 'XGear_W',
