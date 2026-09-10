@@ -234,6 +234,20 @@ export class Ramp extends Overlay {
                       perFacing: true };
 }
 
+/*
+ * A bridge across a square: two rails with the way between them open, so
+ * whatever it spans — a pit, most often — shows through. It covers the whole
+ * square rather than sitting on an edge, so it takes one slot per square.
+ *
+ * It is drawn late: over a ledge and the shadow the ledge casts into the square
+ * it steps down to, since a bridge crossing a level carries over the top of it.
+ * That puts it over the walls as well, which share the ledges' place in the
+ * order, and still under the ramps that climb onto it.
+ */
+export class Bridge extends Overlay {
+  static defaults = { category: 'Levels & Ramps', slotKey: 'bridge', z: 81 };
+}
+
 export class Gear extends Overlay {
   static defaults = { category: 'Gears', slotKey: 'gear', z: 30 };
 }

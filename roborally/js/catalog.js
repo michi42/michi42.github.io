@@ -15,7 +15,7 @@ import {
   ASSET_DIR, EDGE_N, EDGE_E, EDGE_S, EDGE_W, PHASES,
   Element, Floor, Overlay, Conveyor, Distributor, Ramp, Gear, Pit, Teleporter,
   Station, Decal, Flow, Fog, Hazard, Wall, Ledge, WallJoin, Cannon, Mirror,
-  Lettering, WallPortal,
+  Lettering, WallPortal, Bridge,
 } from './elements.js';
 
 /* ------------------------------------------------------------------ *
@@ -100,9 +100,6 @@ defineHidden(Floor, { Lava: { label: 'Floor — lava' } });
  * stops at; only the strip along the foot of each is ever used */
 defineHidden(Decal, ['Lava_Edge1', 'Lava_Edge2', 'Lava_Edge3']);
 
-/* one plain black floor is enough */
-defineHidden(Floor, ['Very_Black']);
-
 /* the drain sits on a floor rather than being one */
 define(Overlay, { Water_Drain: { label: 'Drain', category: 'Floors' } });
 
@@ -117,7 +114,19 @@ define(Conveyor, [
   'Gold', 'Gold_TL', 'Gold_TR', 'Gold_JL', 'Gold_JR',
   'Green', 'GreenA', 'GreenB', 'Green_TL', 'Green_TR',
 ]);
-define(Conveyor, { Variable: { label: 'Belt — variable speed' } });
+/*
+ * The variable-speed belt, with the three-colour rollers that mark a belt
+ * running at more than one speed: the straight one off Baggage Claim and its
+ * turns and joins off Grand Prix 4, by tools/extract_variable_belt.py. Neither
+ * board carries a join from both sides or a three-way one.
+ */
+define(Conveyor, {
+  Variable:    { label: 'Belt — variable speed' },
+  Variable_TL: { label: 'Belt — variable speed, turn left' },
+  Variable_TR: { label: 'Belt — variable speed, turn right' },
+  Variable_JL: { label: 'Belt — variable speed, join left' },
+  Variable_JR: { label: 'Belt — variable speed, join right' },
+});
 
 /* ------------------------------------------------------------------ *
  * Flows                                                               *
@@ -151,11 +160,6 @@ define(Flow, ['Waste_Current_Start', 'Waste_Current1', 'Waste_Current2',
 define(Flow, ['Lava_Flow_Start', 'Lava_Flow1', 'Lava_Flow2',
               'Lava_Flow_L', 'Lava_Flow_R'], { order: 3 });
 
-/* the crushers with a belt baked in are drawn by dropping a crusher on a
- * conveyor, and the gold "special" belts are the plain ones redrawn */
-defineHidden(Conveyor, ['Red_JL_Crusher_24', 'Red_JL_Crusher_3',
-                        'Gold_Special2', 'Gold_Special3']);
-
 /* ------------------------------------------------------------------ *
  * Conveyor distributors                                               *
  * ------------------------------------------------------------------ */
@@ -181,7 +185,7 @@ define(Distributor, {
   Multi_Red_XUR:  { exits: [EDGE_N, EDGE_E] },
 }, { extras: numbered(EXIT_BADGE) });
 
-defineHidden(Distributor, [...numbered(EXIT_BADGE), 'Multi_Blank']);
+defineHidden(Distributor, numbered(EXIT_BADGE));
 
 /* ------------------------------------------------------------------ *
  * Ramps                                                               *
@@ -192,6 +196,14 @@ define(Ramp, {
   Blue_Ramp_Special: { label: 'Ramp — blue belt' },
   Gold_Special1: { label: 'Ramp — gold belt' },
 });
+
+/*
+ * A bridge, which carries a robot over what it spans in some of the register
+ * phases. It wears the trap door's digits, in the places they are drawn on the
+ * tile — the two go together, a bridge over a pit — and the digits carry their
+ * own positions, so nothing has to be laid out for them.
+ */
+define(Bridge, { Bridge: { phases: { badge: 'Pit_#' } } });
 
 /* ------------------------------------------------------------------ *
  * Gears                                                               *
@@ -219,14 +231,10 @@ define(Gear, {
   XGear_AC: { label: 'Cross gear — anti-clockwise', parts: XGEAR_WINGS },
 });
 
-/* the wings and quarters come with their middles, the vertical big gear is the
- * horizontal one turned a quarter, and the "special" gears are the plain ones
- * redrawn */
+/* the wings and quarters come with their middles */
 defineHidden(Gear, [
   'XGear_N', 'XGear_E', 'XGear_S', 'XGear_W',
-  'Big_Gear_H2', 'Big_Gear_H3', 'Big_Gear_H4',
-  'Big_Gear_V1', 'Big_Gear_V2', 'Big_Gear_V3', 'Big_Gear_V4',
-  'Gear_CW_Special', 'Gear_AC_Special', 'Gear_Shadow',
+  'Big_Gear_H2', 'Big_Gear_H3', 'Big_Gear_H4', 'Gear_Shadow',
 ]);
 
 /* ------------------------------------------------------------------ *
@@ -268,7 +276,6 @@ define(WallJoin, ['Wall_Nodule', 'Wall_Nodule_L', 'Wall_Nodule_R']);
 /* a forcefield stands shallower than a wall and the padded ones shallower
  * still — all measured off the artwork */
 define(Wall, { Forcefield: {} }, { depth: 13 });
-defineHidden(Wall, ['Forcefield_Open_L', 'Forcefield_Open_R'], { depth: 13 });
 define(Wall, {
   Padded_Wall_Green_L: { depth: 9 },
   Padded_Wall_Pink_L: { depth: 8 },
@@ -276,10 +283,8 @@ define(Wall, {
   Padded_Wall_Pink_R: { depth: 16 },
 });
 
-/* a grate is a wall you can see over, and Knightsbridge belongs to a single
- * board */
+/* a grate is a wall you can see over */
 define(Wall, { Grate: { blocks: [] } });
-defineHidden(Wall, ['Knightsbridge'], { blocks: [] });
 
 define(Ledge, {
   Ledge: { label: 'Ledge (edge)' },
@@ -353,12 +358,6 @@ define(Mirror, {
   Mirror: { mounts: [EDGE_S] },
   Mirror_L: { label: 'Mirror — angled', mounts: [EDGE_S, EDGE_W], angled: true },
 });
-defineHidden(Mirror, {
-  Mirror_W: { mounts: [EDGE_S] },
-  Mirror_L_W: { label: 'Mirror — angled, on a wall',
-                mounts: [EDGE_S, EDGE_W], angled: true },
-});
-
 /* ------------------------------------------------------------------ *
  * Pushers and hazards                                                 *
  * ------------------------------------------------------------------ */
@@ -451,18 +450,8 @@ define(Hazard, {
 defineHidden(Hazard, [
   ...numbered('Pusher_#'), ...numbered('Big_Pusher_#'),
   ...numbered('Crusher_#'), ...numbered('Magnet_#'), ...numbered('Wall_PT_#'),
-  ...numbered('Flamer_#'), ...numbered('Flamer_#r'),
-  ...numbered('Flamer_Long_#'), ...numbered('Flamer_Long_#r'),
-  'Flamer_Long_Blank', 'FlamerSpecial', 'Wall_PT_Blank',
-  'Red_Crusher_15', 'Red_Crusher_24', 'Red_Crusher_3', 'Red_Crusher_3a',
+  ...numbered('Flamer_#'), ...numbered('Flamer_Long_#'), 'Flamer_Long_Blank',
 ]);
-defineHidden(Hazard, {
-  Red_Crusher_Blank: {
-    label: 'Crusher on a belt',
-    phases: { badge: 'Crusher_#', anchor: [75, 75], stack: true },
-  },
-  Spikes_W: { blocks: [EDGE_S], depth: 24 },
-});
 
 /* ------------------------------------------------------------------ *
  * Teleporters                                                         *
@@ -492,10 +481,8 @@ define(WallPortal, [
   'Wall_Portal_Purple', 'Wall_Portal_Red', 'Wall_Portal_Yellow',
 ], { mounts: [EDGE_S] });
 
-/* a portal draws its own shadow and a magnet casts its own pull.
- * `Portal_Shadow2`, a softer version of the same shadow, is left unused. */
-defineHidden(Teleporter, ['Portal_Shadow', 'Portal_Shadow2',
-                          'Pull1', 'Pull2', 'Pull3']);
+/* a portal draws its own shadow and a magnet casts its own pull */
+defineHidden(Teleporter, ['Portal_Shadow', 'Pull1', 'Pull2', 'Pull3']);
 
 /* ------------------------------------------------------------------ *
  * Repair sites and the rest                                           *
@@ -505,10 +492,6 @@ define(Station, ['Spanner', 'Double_Spanner', 'Chop_Shop', 'Reset'],
   { submerges: true });
 define(Station, ['Energizer', 'Jack', 'Finish', 'Repeater',
                  'Padded_Green_Double_Spanner', 'Padded_Orange_Double_Spanner']);
-/* the water is washed back over a repair site standing in it instead of a tile
- * of its own */
-defineHidden(Station, ['Water_Double_Spanner']);
-
 /* Lettering for a board title: it carries words rather than a graphic. The name
  * begins with @ so it can never collide with a file in assets/. */
 export const TEXT_FILE = '@Text';
@@ -540,9 +523,6 @@ define(Decal, [
  * them at a random quarter-turn, which is how a bank of it is laid.
  */
 define(Fog, ['Fog1', 'Fog2', 'Fog3', 'Fog4'], { randomRot: true });
-
-/* the loose numbers, which the phase properties cover now */
-defineHidden(Decal, numbered('Number_#'));
 
 /* ------------------------------------------------------------------ *
  * Pits                                                                *
