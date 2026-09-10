@@ -230,7 +230,8 @@ export class Flow extends Conveyor {
 }
 
 export class Ramp extends Overlay {
-  static defaults = { category: 'Ramps', slotKey: 'ramp', z: 82, perFacing: true };
+  static defaults = { category: 'Levels & Ramps', slotKey: 'ramp', z: 82,
+                      perFacing: true };
 }
 
 export class Gear extends Overlay {
@@ -267,11 +268,11 @@ export class Station extends Overlay {
  * through a bank.
  */
 export class Fog extends Overlay {
-  static defaults = { category: 'Oil & waste', slotKey: 'fog', z: 92 };
+  static defaults = { category: 'Oil, fog & waste', slotKey: 'fog', z: 92 };
 }
 
 export class Decal extends Overlay {
-  static defaults = { category: 'Oil & waste', slotKey: 'decal', z: 60 };
+  static defaults = { category: 'Oil, fog & waste', slotKey: 'decal', z: 60 };
 }
 
 export class Hazard extends Overlay {
@@ -286,17 +287,20 @@ export class Hazard extends Overlay {
  * instead of sinking into it.
  */
 export class Wall extends Overlay {
-  static defaults = { category: 'Walls & ledges', slotKey: 'wall', z: 80,
+  static defaults = { category: 'Walls', slotKey: 'wall', z: 80,
                       perFacing: true, blocks: [EDGE_S], depth: 24 };
 }
 
 /*
  * A ledge is a step, and the square it is drawn in is the low side looking up
  * at it, so it stops a beam trying to leave that square across it but not one
- * coming the other way.
+ * coming the other way. It takes a wall's slot — a square holds one thing per
+ * edge — but is offered with the ramps, since a ledge and a ramp are two halves
+ * of the same idea.
  */
 export class Ledge extends Wall {
-  static defaults = { blocks: [], stops: [EDGE_S], depth: 27 };
+  static defaults = { category: 'Levels & Ramps', blocks: [], stops: [EDGE_S],
+                      depth: 27 };
 }
 
 /* A nodule bridges two runs meeting at a corner. It covers too little of the

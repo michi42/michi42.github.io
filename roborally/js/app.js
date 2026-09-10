@@ -192,7 +192,9 @@ function placementFiles(p) {
     out.push(...beamGraphics(emitter));
     for (const b of emitterBarrels(emitter, p.count)) out.push(b.mount);
   }
-  return out.filter(Boolean);
+  /* a single-barrelled emitter names its own graphic as its mount, so the list
+   * is deduplicated rather than asking for the same file twice */
+  return [...new Set(out.filter(Boolean))];
 }
 
 /* ------------------------------------------------------------------ *
@@ -1797,6 +1799,17 @@ function swatchFor(entry) {
     + (entry.layer === 'floor' && !tool ? '  [floor]' : '')
     + (entry.files.length > 1 ? '  — random of ' + entry.files.length : '')
     + (entry.randomRot ? '  — random facing' : '');
+  /* something that casts a beam is shown casting one: the nozzle alone says
+   * little, and a cannon, a pulse cannon and a sensor differ only in it */
+  const emitter = entry.files.length === 1 && emitterSpec(entry.files[0]);
+  if (emitter) {
+    const beam = document.createElement('img');
+    beam.loading = 'lazy';
+    beam.className = 'beam';
+    beam.src = assetUrl(beamGraphic(emitter, 0));
+    beam.alt = '';
+    b.appendChild(beam);
+  }
   const img = document.createElement('img');
   img.loading = 'lazy';
   img.src = assetUrl(entry.thumb);

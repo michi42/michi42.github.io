@@ -127,6 +127,10 @@ main { flex: 1; display: flex; min-height: 0; }
   position: relative;
 }
 .sw img { width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none; }
+/* the beam an emitter casts goes behind its nozzle: an absolutely positioned
+ * image would otherwise paint over the one still in flow, whatever their order */
+.sw img.beam { position: absolute; inset: 0; z-index: 0; }
+.sw img:not(.beam) { position: relative; z-index: 1; }
 .sw:hover { border-color: var(--dim); }
 .sw.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-d); }
 /* ⁂ marks a swatch that picks between several graphics, A one that paints and
@@ -139,8 +143,8 @@ main { flex: 1; display: flex; min-height: 0; }
   color: var(--accent);
   text-shadow: 0 0 3px #000, 0 0 3px #000;
 }
-.sw.multi::after { content: "⁂"; right: 1px; }
-.sw.tool::before { content: "A"; left: 2px; font-weight: 700; }
+.sw.multi::after { content: "⁂"; right: 1px; z-index: 999; }
+.sw.tool::before { content: "A"; left: 2px; font-weight: 700; z-index: 999; }
 .empty-note { padding: 10px; color: var(--dim); }
 
 /* ---------- inspector ----------------------------------------------- */

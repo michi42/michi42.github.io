@@ -87,7 +87,7 @@ defineHidden(Decal, ['Ice_Edge1', 'Ice_Edge2', 'Ice_Edge3']);
 
 /* Sludge is a floor, but it belongs with the waste rather than the floors. */
 define(Floor, {
-  Radioactive_Waste: { label: 'Floor — toxic waste', category: 'Oil & waste' },
+  Radioactive_Waste: { label: 'Floor — toxic waste', category: 'Oil, fog & waste' },
 });
 
 /*
@@ -287,7 +287,7 @@ define(Ledge, {
   Ledge_U: { stops: [EDGE_S, EDGE_W, EDGE_E] },
   Ledge_O: { stops: [EDGE_N, EDGE_E, EDGE_S, EDGE_W] },
 });
-define(WallJoin, ['Ledge_Nodule']);
+define(WallJoin, { Ledge_Nodule: { category: 'Levels & Ramps' } });
 
 /* ------------------------------------------------------------------ *
  * Lasers, mirrors and pulls                                           *
@@ -324,9 +324,24 @@ define(Cannon, {
   },
 }, { mounts: [EDGE_S] });
 
+/*
+ * A sensor beam: the same nozzle as a laser cannon, casting one bright green
+ * beam rather than a red one. `GLaser`, the green beam, ships in the set with
+ * nothing to fire it; the nozzle is the cannon's own graphic under another name,
+ * so that an element is one name and one thing.
+ */
+define(Cannon, {
+  Sensor: {
+    label: 'Sensor beam', mounts: [EDGE_S],
+    emitter: { beam: 'GLaser', mounts: ['Sensor'], baked: [0], spread: {},
+               max: 1, muzzle: 27, reflects: true },
+  },
+});
+
 /* a cannon carries its own barrels and draws its own beam */
 defineHidden(Cannon, ['GunL', 'GunR'], { mounts: [EDGE_S] });
-defineHidden(Cannon, { Laser: { label: 'Laser beam' }, MLaser: {}, GLaser: {} });
+defineHidden(Cannon, { Laser: { label: 'Laser beam' }, MLaser: {},
+                       GLaser: { label: 'Sensor beam — the beam itself' } });
 
 /*
  * The flat mirror is bolted to one edge; the angled one tucks into the corner
@@ -488,7 +503,7 @@ defineHidden(Teleporter, ['Portal_Shadow', 'Portal_Shadow2',
 
 define(Station, ['Spanner', 'Double_Spanner', 'Chop_Shop', 'Reset'],
   { submerges: true });
-define(Station, ['Energizer', 'Jack', 'Finish',
+define(Station, ['Energizer', 'Jack', 'Finish', 'Repeater',
                  'Padded_Green_Double_Spanner', 'Padded_Orange_Double_Spanner']);
 /* the water is washed back over a repair site standing in it instead of a tile
  * of its own */
@@ -556,28 +571,28 @@ export const CATEGORIES = [
   'Conveyors',
   'Conveyor distributors',
   'Flows',
-  'Ramps',
+  'Levels & Ramps',
   'Gears',
-  'Walls & ledges',
+  'Walls',
   'Lasers',
   'Pushers & hazards',
   'Repair & special',
   'Teleporters',
-  'Oil & waste',
+  'Oil, fog & waste',
   'Other',
   'Pits (custom)',
 ];
 
 /*
- * The slot rule per category, gathered from the elements in it — every element
- * of a category shares one, since both come from its class. Floors take no
- * overlay slot, so they are left out.
+ * Every overlay slot there is, gathered from the elements that take one. A slot
+ * belongs to a class rather than to a palette group: a ledge is offered with
+ * the ramps but holds a wall's slot, so one group can draw on two of these.
  */
-export const KINDS = (() => {
+export const SLOTS = (() => {
   const out = {};
   for (const el of REGISTRY.values()) {
     if (el.layer === 'floor') continue;
-    out[el.category] = { key: el.slotKey, z: el.z, perFacing: el.perFacing };
+    out[el.slotKey] = { key: el.slotKey, z: el.z, perFacing: el.perFacing };
   }
   return out;
 })();
@@ -673,12 +688,12 @@ export function submergedBy(floorFile, file) {
  */
 export const AUTO_SETS = {
   wall: {
-    label: 'Wall',
+    label: 'Wall', cat: 'Walls',
     one: 'Wall', corner: 'Wall_L', three: 'Wall_U', ring: null,
     nodule: 'Wall_Nodule',
   },
   ledge: {
-    label: 'Ledge',
+    label: 'Ledge', cat: 'Levels & Ramps',
     one: 'Ledge', corner: 'Ledge_L', three: 'Ledge_U', ring: 'Ledge_O',
     nodule: 'Ledge_Nodule',
   },
@@ -719,7 +734,7 @@ export const AUTO_AREAS = {
    */
   waste: {
     label: 'Radioactive waste', floor: 'Radioactive_Waste',
-    cat: 'Oil & waste', bank: 48, thumb: 'Radioactive_Waste_End', spin: true,
+    cat: 'Oil, fog & waste', bank: 48, thumb: 'Radioactive_Waste_End', spin: true,
     banks: ['Radioactive_Waste_Edge1', 'Radioactive_Waste_Edge2',
             'Radioactive_Waste_Edge3'],
   },
@@ -845,7 +860,7 @@ const SMART_SPEC = [
   ['floor-water',      'Floor — water',        ['Water1', 'Water2']],
   ['floor-padded',     'Floor — padded cell',  ['Padded_Green', 'Padded_Orange', 'Padded_Pink']],
   ['fog',              'Fog',                  ['Fog1', 'Fog2', 'Fog3', 'Fog4'],
-   'Oil & waste'],
+   'Oil, fog & waste'],
 ];
 
 const SMART_ENTRIES = SMART_SPEC.map(([id, label, files, cat]) => entry({
@@ -859,7 +874,7 @@ const AUTO_ENTRIES = [
     const e = entry({
       id: 'auto:' + kind,
       label: AUTO_SETS[kind].label + ' (auto)',
-      cat: 'Walls & ledges', layer: 'overlay',
+      cat: AUTO_SETS[kind].cat, layer: 'overlay',
       files: [AUTO_SETS[kind].one], smart: true,
     });
     e.auto = kind;
@@ -868,7 +883,7 @@ const AUTO_ENTRIES = [
   (() => {
     const e = entry({
       id: 'slick:oil', label: 'Oil slick (auto)',
-      cat: 'Oil & waste', layer: 'overlay',
+      cat: 'Oil, fog & waste', layer: 'overlay',
       files: ['Oil_Start1'], smart: true,
     });
     e.slick = true;
