@@ -14,7 +14,7 @@
 import {
   ASSET_DIR, EDGE_N, EDGE_E, EDGE_S, EDGE_W, PHASES,
   Element, Floor, Overlay, Conveyor, Distributor, Ramp, Gear, Pit, Teleporter,
-  Station, Decal, Flow, Hazard, Wall, Ledge, WallJoin, Cannon, Mirror,
+  Station, Decal, Flow, Fog, Hazard, Wall, Ledge, WallJoin, Cannon, Mirror,
   Lettering, WallPortal,
 } from './elements.js';
 
@@ -71,6 +71,20 @@ define(Floor, {
   Water1_Special: { label: 'Deep water' },
 }, { washes: true });
 
+/*
+ * Ice, off Cold Room by tools/extract_cold.py. Two sheets of it are printed,
+ * which that board lays at random over its field, and two more carrying a ridge
+ * of brighter frost, which it runs along the sides the field stops at — those
+ * are the rim below, not sheets to lay a field from. A repair site or a chop
+ * shop standing on ice is printed under it, so the ice washes back over the
+ * top, the way water does but far more thickly.
+ */
+defineHidden(Floor, ['Ice1', 'Ice2'], { washes: 0.65 });
+
+/* the ridge of frost a field of ice is edged with; only the strip along the
+ * foot of each is ever drawn */
+defineHidden(Decal, ['Ice_Edge1', 'Ice_Edge2', 'Ice_Edge3']);
+
 /* Sludge is a floor, but it belongs with the waste rather than the floors. */
 define(Floor, {
   Radioactive_Waste: { label: 'Floor — toxic waste', category: 'Oil & waste' },
@@ -80,7 +94,11 @@ define(Floor, {
  * Lava, off Forge On by tools/extract_currents.py. Every printed lava square
  * carries a flow arrow, so the plain tile is one with its arrow painted out.
  */
-define(Floor, { Lava: { label: 'Floor — lava' } });
+defineHidden(Floor, { Lava: { label: 'Floor — lava' } });
+
+/* the rock a pool of lava banks up against, drawn along the sides the pool
+ * stops at; only the strip along the foot of each is ever used */
+defineHidden(Decal, ['Lava_Edge1', 'Lava_Edge2', 'Lava_Edge3']);
 
 /* one plain black floor is enough */
 defineHidden(Floor, ['Very_Black']);
@@ -501,6 +519,13 @@ define(Decal, [
   'Radioactive_Waste_Edge1', 'Radioactive_Waste_Edge2', 'Radioactive_Waste_Edge3',
 ]);
 
+/*
+ * Fog: white cloud on a transparent tile, drawn by hand rather than taken off a
+ * board. Four of them, offered one by one and as a brush that picks between
+ * them at a random quarter-turn, which is how a bank of it is laid.
+ */
+define(Fog, ['Fog1', 'Fog2', 'Fog3', 'Fog4'], { randomRot: true });
+
 /* the loose numbers, which the phase properties cover now */
 defineHidden(Decal, numbered('Number_#'));
 
@@ -624,10 +649,16 @@ export function mirrorTurn(file, rot) { return elementOf(file).mirrorTurn(rot); 
  */
 export const SUBMERGE = { alpha: 0.35 };
 
-/** The wash to draw back over `file`, or null if it is not standing in water. */
+/*
+ * The wash to draw back over `file`, or null if what it stands on does not wash
+ * over it. A floor says how thickly it washes: water lets a repair site read
+ * through it easily, ice hardly at all, which is how the printed boards have
+ * them.
+ */
 export function submergedBy(floorFile, file) {
-  return floorFile && elementOf(floorFile).washes && elementOf(file).submerges
-    ? SUBMERGE : null;
+  const washes = floorFile && elementOf(floorFile).washes;
+  if (!washes || !elementOf(file).submerges) return null;
+  return washes === true ? SUBMERGE : { alpha: washes };
 }
 
 /* ------------------------------------------------------------------ *
@@ -691,6 +722,23 @@ export const AUTO_AREAS = {
     cat: 'Oil & waste', bank: 48, thumb: 'Radioactive_Waste_End', spin: true,
     banks: ['Radioactive_Waste_Edge1', 'Radioactive_Waste_Edge2',
             'Radioactive_Waste_Edge3'],
+  },
+  /* lava banks against rock the same way, so it is painted the same way; its
+   * banks are shallower, being the rock that lies between two channels of it */
+  lava: {
+    label: 'Lava', floor: 'Lava',
+    cat: 'Floors', bank: 36, thumb: 'Lava', spin: true,
+    banks: ['Lava_Edge1', 'Lava_Edge2', 'Lava_Edge3'],
+  },
+  /*
+   * A field of ice is edged by a ridge of brighter frost, faint beside a bank
+   * of rock but there all the same. Two plain sheets of ice are printed, so a
+   * square takes one of them at random as well as a turn.
+   */
+  ice: {
+    label: 'Ice', floors: ['Ice1', 'Ice2'],
+    cat: 'Floors', bank: 26, thumb: 'Ice1', spin: true,
+    banks: ['Ice_Edge1', 'Ice_Edge2', 'Ice_Edge3'],
   },
 };
 
@@ -787,16 +835,21 @@ export function entry(o) {
   };
 }
 
-/* Hand-tuned entries that draw from several interchangeable graphics. */
+/*
+ * Hand-tuned entries that draw from several interchangeable graphics, laid at a
+ * random quarter-turn. The group is the floors unless one is named.
+ */
 const SMART_SPEC = [
   ['floor-plain',      'Floor — plain',        ['Floor1', 'Floor2', 'Floor3']],
   ['floor-rust',       'Floor — rust',         ['Rust1', 'Rust2', 'Rust3', 'Rust4']],
   ['floor-water',      'Floor — water',        ['Water1', 'Water2']],
   ['floor-padded',     'Floor — padded cell',  ['Padded_Green', 'Padded_Orange', 'Padded_Pink']],
+  ['fog',              'Fog',                  ['Fog1', 'Fog2', 'Fog3', 'Fog4'],
+   'Oil & waste'],
 ];
 
-const SMART_ENTRIES = SMART_SPEC.map(([id, label, files]) => entry({
-  id: 'smart:' + id, label, cat: 'Floors', layer: 'floor',
+const SMART_ENTRIES = SMART_SPEC.map(([id, label, files, cat]) => entry({
+  id: 'smart:' + id, label, cat: cat || 'Floors', layer: layerOf(files[0]),
   files, randomRot: true, smart: true,
 }));
 

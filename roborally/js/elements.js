@@ -106,7 +106,7 @@ export class Element {
     depth: 0,            // how far it stands into its square
     angled: false,       // an angled mirror, which turns a beam
     window: null,        // a disc a conveyor underneath shows through
-    washes: false,       // a floor that washes back over what stands in it
+    washes: false,       // how thickly it washes back over what stands in it
     submerges: false,    // an element the water washes back over
     parts: null,         // [[dc, dr, name]] of the squares it also covers
     opens: null,         // [left, right, both] variants with the ends uncapped
@@ -257,6 +257,17 @@ export class WallPortal extends Teleporter {
 
 export class Station extends Overlay {
   static defaults = { category: 'Repair & special', slotKey: 'station', z: 50 };
+}
+
+/*
+ * A bank of fog: white cloud lying over whatever is on the square. It takes a
+ * slot of its own so it can lie over anything else, and comes last of all of
+ * them in the drawing order, since it hangs above the floor rather than on it.
+ * Laser beams are drawn after every square regardless, so one still shows
+ * through a bank.
+ */
+export class Fog extends Overlay {
+  static defaults = { category: 'Oil & waste', slotKey: 'fog', z: 92 };
 }
 
 export class Decal extends Overlay {

@@ -448,10 +448,14 @@ function paintPit(c, r, kind, on) {
      * back rather than leaving a hole */
     const beneath = cell.floor && cell.floor.auto ? cell.floor.under || null : cell.floor || null;
     for (const k of PIT_KINDS) cell.items = cell.items.filter(p => p.auto !== k);
-    /* sludge has a pattern of its own, so each square of it is turned at
-     * random to keep a pool from looking tiled */
-    const spin = AUTO_AREAS[kind].spin ? (Math.random() * 4) | 0 : 0;
-    cell.floor = { file: AUTO_AREAS[kind].floor, rot: spin, auto: kind, under: beneath };
+    /* sludge, lava and ice each have a pattern of their own, so a square is
+     * turned at random — and where a set has several sheets of it, one of them
+     * is picked — to keep a field from looking tiled */
+    const set = AUTO_AREAS[kind];
+    const floors = set.floors || [set.floor];
+    const spin = set.spin ? (Math.random() * 4) | 0 : 0;
+    cell.floor = { file: floors[(Math.random() * floors.length) | 0],
+                   rot: spin, auto: kind, under: beneath };
   } else {
     cell.floor = cell.floor.under || null;
   }
