@@ -1176,6 +1176,75 @@ function traceBeam(c, r, dir, off, spec, out, inset) {
   }
 }
 
+/*
+ * The cannon a cannon is firing at, if it is firing at one: the beam's path is
+ * walked and the first emitter found firing back down it is the answer. It is
+ * looked for in each square before whatever stops the beam there, since a
+ * cannon stands on the wall that stops the other's beam.
+ */
+function opposingEmitter(c, r, p, spec) {
+  const seen = new Set();
+  let cc = c, rr = r, d = p.rot;
+
+  for (let step = 0; step < 500; step++) {
+    const key = cc + ',' + rr + ',' + d;
+    if (seen.has(key)) return null;             // mirrors sending it in circles
+    seen.add(key);
+
+    const cell = cellAt(cc, rr);
+    if (!cell) return null;
+    if (spec.reflects) {
+      const turn = mirrorInCell(cell);
+      if (turn) d = turn[d];
+    }
+    const back = (d + 2) % 4;
+    for (const q of cell.items) {
+      if (q === p) continue;
+      const other = emitterSpec(q.file);
+      if (other && other.mounts && q.rot === back) return { p: q, spec: other };
+    }
+    if (beamStop(cc, rr, d) !== null) return null;
+    cc += DIR_STEP[d][0];
+    rr += DIR_STEP[d][1];
+  }
+  return null;
+}
+
+/*
+ * How a cannon's barrels sit, and whether they are drawn over the beams instead
+ * of under them.
+ *
+ * Two cannons firing at each other share one arrangement across the line
+ * between them, so that their beams run side by side rather than on top of one
+ * another: a beam each makes a pair, and three between them a triple. Past three
+ * there is no room left to separate them, so both sides use the triple and their
+ * beams double up — and then the barrels have to be drawn over the beams, or the
+ * far cannon's beam would be drawn across the near cannon's nozzle. A pulse
+ * cannon and a sensor have the one barrel and always sit in the middle, so a
+ * pair of those facing each other doubles up the same way.
+ */
+function emitterLayout(c, r, p) {
+  const spec = emitterSpec(p.file);
+  const alone = { barrels: emitterBarrels(spec, p.count), over: false };
+  if (!spec.mounts) return alone;
+
+  const foe = opposingEmitter(c, r, p, spec);
+  if (!foe) return alone;
+
+  /* only a cannon that can spread its beams asks for room on the line */
+  const asks = q => {
+    const s = emitterSpec(q.file);
+    return s.max > 1 ? Math.max(1, Math.min(s.max, q.count || 1)) : 0;
+  };
+  const room = Math.max(1, Math.min(3, asks(p) + asks(foe.p)));
+  const barrels = emitterBarrels(spec, p.count, room);
+  const theirs = emitterBarrels(foe.spec, foe.p.count, room);
+
+  /* their offsets are measured from their own right, which is our left */
+  const over = barrels.some(a => theirs.some(b => Math.abs(a.off + b.off) < 0.5));
+  return { barrels, over };
+}
+
 /** Every beam on the board, worked out from the cannons rather than stored. */
 function traceAllBeams() {
   const out = [];
@@ -1185,7 +1254,7 @@ function traceAllBeams() {
         const spec = emitterSpec(p.file);
         if (!spec) continue;
         const inset = spec.muzzle && standOff(state.cells[r][c], p).in + spec.muzzle;
-        for (const b of emitterBarrels(spec, p.count)) {
+        for (const b of emitterLayout(c, r, p).barrels) {
           traceBeam(c, r, p.rot, b.off, spec, out, inset);
         }
       }
@@ -1293,6 +1362,7 @@ function drawTiles(g, tile, resolve) {
    * numbers on the half of it in the next square along, and that square may not
    * have been drawn yet. */
   const numbers = [];
+  const nozzles = [];
   for (let r = 0; r < state.rows; r++) {
     for (let c = 0; c < state.cols; c++) {
       const cell = state.cells[r][c];
@@ -1309,10 +1379,16 @@ function drawTiles(g, tile, resolve) {
         const emitter = emitterSpec(p.file);
         const barrels = emitter && emitter.mounts;
         if (barrels) {
-          for (const b of emitterBarrels(emitter, p.count)) {
-            const barrel = resolve(b.mount);
-            if (barrel) drawMounted(g, barrel, x, y, tile, p.rot, stand.in, b.shift + stand.side);
-          }
+          const layout = emitterLayout(c, r, p);
+          const lay = () => {
+            for (const b of layout.barrels) {
+              const barrel = resolve(b.mount);
+              if (barrel) drawMounted(g, barrel, x, y, tile, p.rot, stand.in, b.shift + stand.side);
+            }
+          };
+          /* a nozzle whose beam doubles up with the one fired back at it goes
+           * on after the beams, so the far beam is not drawn across it */
+          if (layout.over) nozzles.push(lay); else lay();
         }
         const img = barrels || p.file === TEXT_FILE ? null : resolve(p.file);
         if (p.file === TEXT_FILE) drawText(g, p, x, y, tile);
@@ -1332,6 +1408,7 @@ function drawTiles(g, tile, resolve) {
     drawPhaseBadges(g, p, x, y, tile, resolve, belt, stand);
   }
   drawBeams(g, tile, resolve);      // beams run over the squares they cross
+  for (const lay of nozzles) lay();
 }
 
 function drawGridLines(g, tile, colour) {
@@ -2451,6 +2528,7 @@ export {
   /* the tools */
   applyTool, setTool, setRotMode, paint, eraseTop, rotateTop, paintEdge,
   paintPit, paintOil, isPit, isOil, nearestEdge, standOff, lastWheel,
+  emitterLayout, opposingEmitter,
 
   /* drawing */
   images, loadImage, drawTiles, traceAllBeams, badgeFrame, beltTone, beltTones,

@@ -358,18 +358,29 @@ export function beamGraphic(spec, i) {
 
 /*
  * The barrels of an emitter set to cast `count` beams. `off` is where the beam
- * goes, square to the way it fires; `shift` is how far the graphic has to move
- * from where it was drawn to sit under it.
+ * goes, square to the way it fires and positive to the emitter's right; `shift`
+ * is how far the graphic has to move from where it was drawn to sit under it.
+ *
+ * `room` is how many beams the line it fires along carries in all, which is
+ * more than its own count when another cannon is firing back down the same
+ * line: two cannons facing each other lay their barrels out between them as one
+ * arrangement, the way the printed boards do it. A cannon with one barrel takes
+ * the middle of a three, but one side of a two — its own right, so that the
+ * pair of them end up either side of the line rather than on top of each other.
  */
-export function emitterBarrels(spec, count) {
+export function emitterBarrels(spec, count, room) {
   if (!spec.mounts) return [{ mount: null, off: 0, shift: 0 }];
   const at = (i, off) => ({ mount: spec.mounts[i], off, shift: off - spec.baked[i] });
   const n = Math.max(1, Math.min(spec.max, count || 1));
   if (spec.max === 1) return [at(0, 0)];
+
+  const slots = Math.max(n, Math.min(3, room || n));
+  if (slots === 1) return [at(1, 0)];
+  const out = spec.spread[slots];
+  if (slots === 2) return n === 1 ? [at(1, out)] : [at(0, -out), at(2, out)];
   if (n === 1) return [at(1, 0)];
-  const out = spec.spread[n];
-  const outer = [at(0, -out), at(2, out)];
-  return n === 2 ? outer : [outer[0], at(1, 0), outer[1]];
+  if (n === 2) return [at(0, -out), at(2, out)];
+  return [at(0, -out), at(1, 0), at(2, out)];
 }
 
 /** The quarter-turn that puts `base`'s edges onto `target`, or null. */
