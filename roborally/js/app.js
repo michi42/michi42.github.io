@@ -1471,9 +1471,12 @@ function render() {
   }
 
   /* the cursor shows every square the brush will cover, not just the one under
-   * the pointer */
+   * the pointer — turned the way the brush is set, so it outlines where the
+   * pieces will really go */
   const footprint = state.brush && state.brush.assembly
-    ? assemblySquares(state.brush.files[0]) : [[0, 0]];
+    ? assemblyFootprint(state.brush.files[0],
+                        state.rotMode === 'auto' ? 0 : state.rotMode)
+    : [[0, 0]];
 
   const outline = (p, colour, dash, spread) => {
     if (!p) return;
@@ -1498,27 +1501,64 @@ function render() {
  * share. */
 let assemblyTag = 0;
 
+/*
+ * Turning an assembly: the same rule the whole editor goes by, so that what the
+ * cursor outlines, what is checked for room, and where the pieces land can
+ * never disagree.
+ *
+ * It turns about its middle where the grid can turn about that — the corner of
+ * four for a 2x2 gear, the centre of one for a five-square cross, both of which
+ * come out covering the squares they already covered — and about the square it
+ * is placed from otherwise, which is what swings a two-square piece round its
+ * nozzle.
+ */
+function turnedAbout(squares, about) {
+  return squares.map(([c, r]) => {
+    const dx = c + 0.5 - about[0], dy = r + 0.5 - about[1];
+    return [about[0] - dy, about[1] + dx];
+  });
+}
+
+function assemblyCentre(squares) {
+  const mid = [squares.reduce((t, s) => t + s[0] + 0.5, 0) / squares.length,
+               squares.reduce((t, s) => t + s[1] + 0.5, 0) / squares.length];
+  const square = ([x, y]) => Math.abs(x - Math.floor(x) - 0.5) < 1e-9
+                          && Math.abs(y - Math.floor(y) - 0.5) < 1e-9;
+  return turnedAbout(squares, mid).every(square)
+    ? mid : [squares[0][0] + 0.5, squares[0][1] + 0.5];
+}
+
+/** Every square an assembly covers once turned, the one it is laid from first. */
+function assemblyFootprint(file, turns) {
+  let squares = assemblySquares(file);
+  for (let i = 0; i < (((turns || 0) % 4) + 4) % 4; i++) {
+    squares = turnedAbout(squares, assemblyCentre(squares))
+      .map(([x, y]) => [Math.floor(x), Math.floor(y)]);
+  }
+  return squares;
+}
+
 function placeAssembly(c, r, entry) {
   const file = entry.files[0];
-  const parts = assemblyOf(file);
-  const squares = assemblySquares(file);
+  /* take whatever the brush is set to — the facing, the phases and the rest */
+  const piece = placement(entry);
+  const squares = assemblyFootprint(file, piece.rot);
   if (squares.some(([dc, dr]) => !cellAt(c + dc, r + dr))) {
-    setStatus('That gear does not fit there — it covers '
+    setStatus('That does not fit there — it covers '
       + squares.length + ' squares.', true);
     return false;
   }
+
+  /* Lay the pieces where the turned assembly puts them rather than laying it
+   * unturned and spinning it: spinning needs the squares it passes through, so
+   * a flamer facing south could not be laid along the top row of the board. */
   const tag = 'a' + (++assemblyTag);
-  /* take whatever the brush is set to — phases and the rest — but lay the
-   * pieces out unturned, then turn the whole thing to the facing asked for */
-  const piece = placement(entry);
-  const turns = piece.rot;
-  piece.rot = 0;
   piece.asm = tag;
-  addToCell(cellAt(c, r), piece);
-  for (const [dc, dr, part] of parts) {
-    addToCell(cellAt(c + dc, r + dr), { file: part, rot: 0, asm: tag });
-  }
-  for (let i = 0; i < turns; i++) rotateAssembly(c, r, tag, 1);
+  addToCell(cellAt(c + squares[0][0], r + squares[0][1]), piece);
+  assemblyOf(file).forEach(([, , part], i) => {
+    const [dc, dr] = squares[i + 1];
+    addToCell(cellAt(c + dc, r + dr), { file: part, rot: piece.rot, asm: tag });
+  });
   return true;
 }
 
@@ -2520,6 +2560,7 @@ export {
   /* the page and the board it holds */
   state, els, canvas, newBoard, resizeBoard, clearCell, fillFloor, addToCell,
   sortItems, topOf, eachPlacement, placement, placementFiles,
+  assemblyFootprint,
 
   /* saving, loading and the undo history */
   snapshot, restore, loadJSON, pushUndo, undo, redo, undoStack, restored,
@@ -2531,7 +2572,7 @@ export {
   emitterLayout, opposingEmitter,
 
   /* drawing */
-  images, loadImage, drawTiles, traceAllBeams, badgeFrame, beltTone, beltTones,
+  images, loadImage, render, drawTiles, traceAllBeams, badgeFrame, beltTone, beltTones,
   backdrop, setBackdrop, textLayout, TEXT_FONT, TEXT_MAX, TEXT_LEAD, TEXT_FIT,
 
   /* the panels */
