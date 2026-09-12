@@ -285,6 +285,18 @@ export class Fog extends Overlay {
   static defaults = { category: 'Oil, fog & waste', slotKey: 'fog', z: 92 };
 }
 
+/*
+ * The rim a field of lava or ice is edged with. Only a strip along the foot of
+ * one is ever drawn, laid on each side the field stops at, so it belongs with
+ * the ground rather than with the things standing on it: it takes a slot of its
+ * own and goes down under everything else on the square — bar a flow, whose
+ * tile is a whole opaque square of lava or sludge that would otherwise cover
+ * the rim up.
+ */
+export class Rim extends Overlay {
+  static defaults = { category: 'Oil, fog & waste', slotKey: 'rim', z: 12 };
+}
+
 export class Decal extends Overlay {
   static defaults = { category: 'Oil, fog & waste', slotKey: 'decal', z: 60 };
 }

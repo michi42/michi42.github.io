@@ -15,7 +15,7 @@ import {
   ASSET_DIR, EDGE_N, EDGE_E, EDGE_S, EDGE_W, PHASES,
   Element, Floor, Overlay, Conveyor, Distributor, Ramp, Gear, Pit, Teleporter,
   Station, Decal, Flow, Fog, Hazard, Wall, Ledge, WallJoin, Cannon, Mirror,
-  Lettering, WallPortal, Bridge,
+  Lettering, WallPortal, Bridge, Rim,
 } from './elements.js';
 
 /* ------------------------------------------------------------------ *
@@ -83,7 +83,7 @@ defineHidden(Floor, ['Ice1', 'Ice2'], { washes: 0.65 });
 
 /* the ridge of frost a field of ice is edged with; only the strip along the
  * foot of each is ever drawn */
-defineHidden(Decal, ['Ice_Edge1', 'Ice_Edge2', 'Ice_Edge3']);
+defineHidden(Rim, ['Ice_Edge1', 'Ice_Edge2', 'Ice_Edge3'], { category: 'Floors' });
 
 /* Sludge is a floor, but it belongs with the waste rather than the floors. */
 define(Floor, {
@@ -98,7 +98,7 @@ defineHidden(Floor, { Lava: { label: 'Floor — lava' } });
 
 /* the rock a pool of lava banks up against, drawn along the sides the pool
  * stops at; only the strip along the foot of each is ever used */
-defineHidden(Decal, ['Lava_Edge1', 'Lava_Edge2', 'Lava_Edge3']);
+defineHidden(Rim, ['Lava_Edge1', 'Lava_Edge2', 'Lava_Edge3'], { category: 'Floors' });
 
 /* the drain sits on a floor rather than being one */
 define(Overlay, { Water_Drain: { label: 'Drain', category: 'Floors' } });
