@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>esprit</title>
+<style>
+  :root { --bg: #1d1d1d; --fg: #d8d8d8; --dim: #8a8a8a; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
+    font: 13px/1.4 system-ui, sans-serif; }
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  #wrap { position: relative; }
+  canvas#screen { display: block; image-rendering: pixelated; image-rendering: crisp-edges;
+    background: #fff; cursor: none; }
+  #help { color: var(--dim); margin-top: 8px; text-align: center; max-width: 900px; padding: 0 16px; }
+  #help kbd { border: 1px solid #555; border-radius: 3px; padding: 0 4px; font: inherit; color: var(--fg); }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="screen" width="640" height="400"></canvas></div>
+<div id="help">
+  Click into the picture to capture the mouse (<kbd>Esc</kbd> releases it).
+  Move the mouse to accelerate the marble. Left button: use the left inventory object,
+  right button: rotate the inventory.
+  <kbd>+</kbd>/<kbd>-</kbd> mouse sensitivity (<span id="sens">100</span>%) ·
+  <kbd>F1</kbd> sound on/off · <kbd>F2</kbd> interrupt game · <kbd>F3</kbd> restart level ·
+  <kbd>Insert</kbd> boss key (Atari <i>Help</i>) · <kbd>F9</kbd> original size / scaled · <kbd>F10</kbd> language (Deutsch / English / Français)
+</div>
+<script src="js/data.js"></script>
+<script src="js/tables.js"></script>
+<script src="js/fixed.js"></script>
+<script src="js/level.js"></script>
+<script src="js/codecs.js"></script>
+<script src="js/gfx.js"></script>
+<script src="js/sound.js"></script>
+<script src="js/input.js"></script>
+<script src="js/script.js"></script>
+<script src="js/world.js"></script>
+<script src="js/stones.js"></script>
+<script src="js/items.js"></script>
+<script src="js/physics.js"></script>
+<script src="js/draw.js"></script>
+<script src="js/levelrt.js"></script>
+<script src="js/game.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
