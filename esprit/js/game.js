@@ -560,17 +560,38 @@
         if (ch.toUpperCase() === M[10]) return;
       }
     }
-    // the diploma as P8d0 lays it out for the printer (logo, title, player, text, place and date)
+    // The diploma exactly as the original composes it on screen and sends it to the printer
+    // (P1270 + P8d0): title-menu tiles, a leaf border, a 16-line strip at the bottom and the texts
+    // drawn with the title's outline/drop-shadow technique. A plain ST has no clock, so no date line.
     drawDiploma(name) {
-      const fb = this.fb, L = this.language, d = new Date();
-      const dpl = this.t('diploma');
+      const fb = this.fb, S = E.SPR, I = (spr, col, row8) => E.drawIcon(fb, spr, col * 32, row8 * 8);
       fb.clear(1);
-      E.drawCentered(fb, [226], 320, 50);
-      E.drawCentered(fb, codes(dpl[0]), 320, 100);
-      if (dpl[1]) E.drawCentered(fb, codes(dpl[1]), 320, 160);
-      E.drawCentered(fb, name, 320, L === 1 ? 190 : 220);
-      E.drawCentered(fb, codes(dpl[2]), 320, 290);
-      E.drawCentered(fb, codes(dpl[3] + `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`), 320, 330);
+      for (let c = 1; c <= 18; c++) for (let r = 1; r <= 10; r++) I(S(7, 0), c, 4 * r);
+      for (let c = 1; c <= 17; c += 2) {
+        I(S(5, 22), c, 0); I(S(6, 22), c + 1, 0); I(S(1, 23), c, 0x2c); I(S(2, 23), c + 1, 0x2c);
+      }
+      for (let r = 1; r <= 9; r += 2) {
+        I(S(4, 23), 0, 4 * r); I(S(0, 22), 0, 4 * r + 4); I(S(7, 23), 19, 4 * r); I(S(3, 22), 19, 4 * r + 4);
+      }
+      I(S(4, 22), 0, 0); I(S(7, 22), 19, 0); I(S(0, 23), 0, 0x2c); I(S(3, 23), 19, 0x2c);
+      for (let c = 0; c <= 19; c++) {                          // GFX_IconRows: sprite lines 0..15 at y=384
+        const tmp = new E.Bitmap(32, 32); tmp.clear(1); E.drawIcon(tmp, S(4, 0), 0, 0);
+        fb.blit(tmp, 0, 0, 32, 16, c * 32, 384);
+      }
+      const dpl = this.t('diploma'), L = this.language;
+      const texts = (dx, dy) => {                                // P8d0(dx, dy)
+        const T = (s, y) => E.drawCentered(fb, s, 320 + dx, y + dy);
+        T([226], 50);
+        T(codes(dpl[0]), 100);
+        if (dpl[1]) T(codes(dpl[1]), 160);
+        T(name, L === 1 ? 190 : 220);
+        T(codes(dpl[2]), 290);
+      };
+      const inv = () => { for (let k = 0; k < fb.px.length; k++) fb.px[k] ^= 1; };
+      inv();
+      for (const [dx, dy] of [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1], [8, 8]]) texts(dx, dy);
+      inv();
+      texts(0, 0);
     }
   }
 
