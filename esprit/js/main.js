@@ -3,28 +3,47 @@
 (function (E) {
   E.DATA = window.ESPRIT_DATA;
 
-  // F9 toggles between scaled to the window and the original size (640x400)
-  let scaled = true;
-  try { scaled = localStorage.getItem('esprit.scaled') !== '0'; } catch (e) { /* ignore */ }
+  // F9 toggles between scaled to the window and the original size (640x400).
+  // F8 / touch menu: lock the scale to integer multiples of 640x400 in *device* pixels (default on for
+  // desktop, off for touch devices). Fractional scaling resamples the 1-bit picture unevenly, which
+  // turns the 50% checkerboard patterns of the Atari graphics into moire stripes.
+  let scaled = true, intLock = null;
+  try {
+    scaled = localStorage.getItem('esprit.scaled') !== '0';
+    const v = localStorage.getItem('esprit.intscale'); if (v === '0' || v === '1') intLock = v === '1';
+  } catch (e) { /* ignore */ }
+  const isTouch = () => document.body.classList.contains('touch');
+  const integerScaling = () => (intLock === null ? !isTouch() : intLock);
 
   function fitCanvas(canvas) {
-    if (document.body.classList.contains('touch')) {
-      // touch devices: use the whole screen, keeping the 16:10 aspect (small screens can't afford
-      // integer scaling)
-      const s = Math.min(window.innerWidth / 640, window.innerHeight / 400);
-      canvas.style.width = Math.floor(640 * s) + 'px';
-      canvas.style.height = Math.floor(400 * s) + 'px';
-      return;
-    }
-    // integer scale in *device* pixels so every ST pixel becomes an equal square block
     const dpr = window.devicePixelRatio || 1;
-    const availW = (window.innerWidth - 16) * dpr, availH = (window.innerHeight - 70) * dpr;
-    let s = Math.min(availW / 640, availH / 400);
-    s = s >= 1 ? Math.floor(s) : s;
-    if (!scaled) s = Math.min(s, Math.max(1, Math.round(dpr)));   // original size: 640x400 at native density
-    canvas.style.width = (640 * s) / dpr + 'px';
-    canvas.style.height = (400 * s) / dpr + 'px';
+    const touch = isTouch();
+    // available area in device pixels (desktop leaves room for the help text)
+    const availW = (window.innerWidth - (touch ? 0 : 16)) * dpr, availH = (window.innerHeight - (touch ? 0 : 70)) * dpr;
+    let s = Math.min(availW / 640, availH / 400);          // scale in device pixels per ST pixel
+    if (integerScaling() && s >= 1) s = Math.floor(s);
+    if (!scaled && !touch) s = Math.min(s, Math.max(1, Math.round(dpr)));   // original size: 640x400 at native density
+    const wDev = Math.max(1, Math.floor(640 * s)), hDev = Math.max(1, Math.floor(400 * s));
+    // The wrapper reserves the space in the layout. The canvas itself stays 640x400 CSS px and is scaled
+    // with a transform: transforms are exact floats, whereas CSS sizes are rounded to 1/64 px (e.g.
+    // 1280 device px at 3x = 426.666 CSS px would become 426.656, which resamples the picture).
+    const wrap = canvas.parentElement;
+    wrap.style.width = wDev / dpr + 'px';
+    wrap.style.height = hDev / dpr + 'px';
+    canvas.style.width = '640px';
+    canvas.style.height = '400px';
+    const r = wrap.getBoundingClientRect();
+    // snap the origin onto the device-pixel grid (centring can leave it at a fractional position)
+    const ox = (Math.round(r.left * dpr) - r.left * dpr) / dpr, oy = (Math.round(r.top * dpr) - r.top * dpr) / dpr;
+    canvas.style.transform = `translate(${ox}px, ${oy}px) scale(${wDev / dpr / 640}, ${hDev / dpr / 400})`;
   }
+  E.fitCanvas = () => fitCanvas(document.getElementById('screen'));
+  E.integerScaling = integerScaling;
+  E.setIntegerScaling = (on) => {
+    intLock = on;
+    try { localStorage.setItem('esprit.intscale', on ? '1' : '0'); } catch (e) { /* ignore */ }
+    E.fitCanvas();
+  };
 
   window.addEventListener('load', () => {
     const canvas = document.getElementById('screen');
@@ -32,6 +51,14 @@
     if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
     fitCanvas(canvas);
     window.addEventListener('resize', () => fitCanvas(canvas));
+    // zooming changes devicePixelRatio, sometimes without a resize event
+    const watchDpr = () => {
+      if (!window.matchMedia) return;
+      const mq = window.matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
+      const on = () => { fitCanvas(canvas); watchDpr(); };
+      if (mq.addEventListener) mq.addEventListener('change', on, { once: true });
+    };
+    watchDpr();
     const screen = new E.Screen(canvas);
     const input = new E.Input(canvas);
     input.onF9 = () => {

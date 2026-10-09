@@ -12,8 +12,9 @@
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
     font: 13px/1.4 system-ui, sans-serif; }
   body { display: flex; flex-direction: column; align-items: center; justify-content: center; }
-  #wrap { position: relative; }
-  canvas#screen { display: block; image-rendering: pixelated; image-rendering: crisp-edges;
+  #wrap { position: relative; overflow: visible; }
+  canvas#screen { display: block; position: absolute; left: 0; top: 0; transform-origin: 0 0;
+    image-rendering: pixelated; image-rendering: crisp-edges;
     background: #fff; cursor: none; }
   #help { color: var(--dim); margin-top: 8px; text-align: center; max-width: 900px; padding: 0 16px; }
   #help kbd { border: 1px solid #555; border-radius: 3px; padding: 0 4px; font: inherit; color: var(--fg); }
@@ -51,6 +52,7 @@
     <span id="tiltval">100%</span></label>
   <button data-act="calib">Calibrate tilt</button>
   <button data-act="fullscreen">Fullscreen</button>
+  <button data-act="intscale" class="wide">Integer scaling</button>
 </div></div>
 <div id="help">
   Click into the picture to capture the mouse (<kbd>Esc</kbd> releases it).
@@ -58,7 +60,7 @@
   right button: rotate the inventory.
   <kbd>+</kbd>/<kbd>-</kbd> mouse sensitivity (<span id="sens">100</span>%) ·
   <kbd>F1</kbd> sound on/off · <kbd>F2</kbd> interrupt game · <kbd>F3</kbd> restart level ·
-  <kbd>Insert</kbd> boss key (Atari <i>Help</i>) · <kbd>F9</kbd> original size / scaled · <kbd>F10</kbd> language (Deutsch / English / Français)<br>
+  <kbd>Insert</kbd> boss key (Atari <i>Help</i>) · <kbd>F9</kbd> original size / scaled · <kbd>F8</kbd> integer scaling on/off (no moir&eacute;) · <kbd>F10</kbd> language (Deutsch / English / Français)<br>
   On phones and tablets: tilt to steer, tap to use the left object, drag on the inventory to rotate it,
   tap the <i>esprit</i> logo for the menu.
 </div>

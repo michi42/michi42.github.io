@@ -40,7 +40,8 @@
       });
       window.addEventListener('keydown', (e) => {
         if (e.repeat) return;
-        if (e.code === 'F9' && this.onF9) { e.preventDefault(); this.onF9(); return; }   // display option, not a game key
+        if (e.code === 'F9' && this.onF9) { e.preventDefault(); this.onF9(); return; }   // display options, not game keys
+        if (e.code === 'F8') { e.preventDefault(); E.setIntegerScaling(!E.integerScaling()); return; }
         this.keys.push(e.code);
         this.keyChar[e.code] = e.key;    // typed character (layout-aware), used for the name entry
         if (/^F\d+$/.test(e.code) || e.code === 'Space' || e.code === 'Tab') e.preventDefault();

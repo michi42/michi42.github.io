@@ -158,6 +158,7 @@
         else if (act === 'lang') { this.game.cycleLanguage(); this.updateMenu(); }
         else if (act === 'calib') { this.calibrate(); this.closeMenu(); }
         else if (act === 'fullscreen') this.toggleFullscreen();
+        else if (act === 'intscale') { E.setIntegerScaling(!E.integerScaling()); this.updateMenu(); }
       });
       m.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
       // sensitivity slider: logarithmic, -200..200 = 25%..400% (2^(v/100))
@@ -188,6 +189,8 @@
       set('lang', T('Sprache: Deutsch', 'Language: English', 'Langue: Français'));
       set('calib', T('Neigung kalibrieren', 'Calibrate tilt', "Calibrer l'inclinaison"));
       set('fullscreen', T('Vollbild', 'Fullscreen', 'Plein écran'));
+      set('intscale', T('Ganzzahlige Skalierung: ', 'Integer scaling: ', 'Échelle entière: ') +
+        (E.integerScaling && E.integerScaling() ? T('an', 'on', 'oui') : T('aus', 'off', 'non')));
       const g = m.querySelector('#tiltval'); if (g) g.textContent = Math.round(this.gain * 100) + '%';
       const sl = m.querySelector('#tiltslider');
       if (sl && document.activeElement !== sl) sl.value = String(Math.round(Math.log2(this.gain) * 100));
