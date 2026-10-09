@@ -127,7 +127,13 @@
       const scale = 640 / (this.screen.canvas.clientWidth || 640) * this.mouseScale;
       const keys = [];
       let left = false, right = false, k, c;
-      while ((c = inp.takeClick())) { if (c === 'left') left = true; else right = true; }
+      let rot = 0;                                               // inventory rotation steps (+ forward, - back)
+      while ((c = inp.takeClick())) {
+        if (c === 'left') left = true;
+        else if (c === 'right') { right = true; rot++; }
+        else if (c === 'rotfwd') rot++;
+        else if (c === 'rotback') rot--;
+      }
       this.langChanged = !!this.langPending; this.langPending = false;
       while ((k = inp.takeKey())) {
         if (k === 'F10') { this.cycleLanguage(); this.langChanged = true; this.langPending = false; continue; }
@@ -148,7 +154,7 @@
       this.mx -= dx; this.my -= dy;
       const tap = left ? inp.tapPos || null : null;
       inp.tapPos = null;
-      return { dx, dy, left, right, keys, tap };
+      return { dx, dy, left, right, keys, tap, rot };
     }
     // not in the original: F10 / the touch menu cycle German -> English -> French
     cycleLanguage() {

@@ -426,7 +426,9 @@
       // @1b992: the buttons are read in every other state; UseFirst acts only in state 0, Rotate
       // stops the ticker and redraws the inventory in any state but rotates only in state 0
       if (this.mouse.left) this.useFirstItem();
-      if (this.mouse.right) this.rotateInventory();
+      // right button = rotate (original); wheel / touch drag also rotate backwards (not in the original)
+      const rot = this.mouse.rot !== undefined ? this.mouse.rot : (this.mouse.right ? 1 : 0);
+      for (let k = 0; k < Math.abs(rot); k++) this.rotateInventory(Math.sign(rot));
     }
     // shatter animation (state 3); returns true while the animation is still running
     shatterStep(a, f, sprites, isFM) {
@@ -575,13 +577,20 @@
       if (!secs && c) { this.inv.silent = true; this.inv.insertFront(c); this.inv.silent = false; }
       return secs;
     }
-    rotateInventory() {                                          // INV_Rotate @1b610
+    // INV_Rotate @1b610: the left-most object moves to the end. dir < 0 (not in the original): the
+    // last object moves to the front.
+    rotateInventory(dir = 1) {
       this.message = null;                                       // TXT_TickerStop, INV_Show: in any state
       this.inv.dirty = true;
       if (!this.hasPlayer || this.playerFig.state !== ST_ALIVE) return;
-      const c = this.inv.popFirst();
       this.playSound('ESHITOM', 100);
-      this.inv.silent = true; this.inv.append(c); this.inv.silent = false;
+      this.inv.silent = true;
+      if (dir >= 0) { const c = this.inv.popFirst(); this.inv.append(c); }
+      else {
+        const n = this.inv.count();
+        if (n) { const c = this.inv.get(n - 1); this.inv.removeAt(n - 1); this.inv.insertFront(c); }
+      }
+      this.inv.silent = false;
       this.playerDamping();
     }
     useFirstItem() {                                             // INV_UseFirst @1af7a

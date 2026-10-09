@@ -93,7 +93,11 @@
         if (t.identifier !== d.id) continue;
         const p = this.pos(t);
         d.acc += p.x - d.x; d.x = p.x;
-        while (Math.abs(d.acc) >= 32) { this.input.clicks.push('right'); d.acc -= Math.sign(d.acc) * 32; d.moved = true; }
+        // drag left = items move left (like the right button), drag right = the other way
+        while (Math.abs(d.acc) >= 32) {
+          this.input.clicks.push(d.acc < 0 ? 'rotfwd' : 'rotback');
+          d.acc -= Math.sign(d.acc) * 32; d.moved = true;
+        }
       }
     }
     onEnd(e) {

@@ -30,6 +30,17 @@
         this.buttons &= ~b;
       });
       canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+      // mouse wheel rotates the inventory (not in the original): down = like the right button
+      // (left-most object to the end), up = the other way. Trackpads send many small deltas.
+      this.wheelAcc = 0;
+      canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        // one wheel notch = one step: Chrome reports 100 px per notch, Firefox 3 lines
+        const unit = e.deltaMode === 1 ? 3 : e.deltaMode === 2 ? 1 : 100;
+        this.wheelAcc += e.deltaY / unit;
+        while (this.wheelAcc >= 1) { this.clicks.push('rotfwd'); this.wheelAcc -= 1; }
+        while (this.wheelAcc <= -1) { this.clicks.push('rotback'); this.wheelAcc += 1; }
+      }, { passive: false });
       document.addEventListener('pointerlockchange', () => {
         this.locked = document.pointerLockElement === canvas;
       });
