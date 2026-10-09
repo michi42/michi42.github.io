@@ -100,6 +100,7 @@
         if (!this.lastTime) this.lastTime = t;
         this.acc += Math.min(250, t - this.lastTime);
         this.lastTime = t;
+        if (this.paused) this.acc = 0;                           // on-screen menu open (touch devices)
         let ran = false;
         while (this.acc >= VBL_MS) { this.acc -= VBL_MS; this.vblTick(); ran = true; }
         if (ran) this.screen.present();
@@ -127,14 +128,9 @@
       const keys = [];
       let left = false, right = false, k, c;
       while ((c = inp.takeClick())) { if (c === 'left') left = true; else right = true; }
-      this.langChanged = false;
+      this.langChanged = !!this.langPending; this.langPending = false;
       while ((k = inp.takeKey())) {
-        if (k === 'F10') {                                       // not in the original: cycle the language
-          this.language = (this.language + 1) % 3;
-          try { localStorage.setItem('esprit.lang', String(this.language)); } catch (e) { /* ignore */ }
-          this.langChanged = true;
-          continue;
-        }
+        if (k === 'F10') { this.cycleLanguage(); this.langChanged = true; this.langPending = false; continue; }
         if (k === 'NumpadAdd' || k === 'Equal' || k === 'NumpadSubtract' || k === 'Minus') {
           const up = k === 'NumpadAdd' || k === 'Equal';
           this.mouseScale = Math.max(0.1, Math.min(10, this.mouseScale * (up ? 1.25 : 0.8)));
@@ -146,10 +142,19 @@
       }
       // accumulate in floating point and hand out whole mickeys, keeping the remainder (rounding per
       // frame would drop slow movements in one direction and amplify them in the other)
-      this.mx = (this.mx || 0) + m.dx * scale; this.my = (this.my || 0) + m.dy * scale;
+      const tilt = inp.takeTilt ? inp.takeTilt() : { x: 0, y: 0 };   // tilt steering (touch devices)
+      this.mx = (this.mx || 0) + m.dx * scale + tilt.x; this.my = (this.my || 0) + m.dy * scale + tilt.y;
       const dx = Math.trunc(this.mx), dy = Math.trunc(this.my);
       this.mx -= dx; this.my -= dy;
-      return { dx, dy, left, right, keys };
+      const tap = left ? inp.tapPos || null : null;
+      inp.tapPos = null;
+      return { dx, dy, left, right, keys, tap };
+    }
+    // not in the original: F10 / the touch menu cycle German -> English -> French
+    cycleLanguage() {
+      this.language = (this.language + 1) % 3;
+      try { localStorage.setItem('esprit.lang', String(this.language)); } catch (e) { /* ignore */ }
+      this.langPending = true;                                   // screens redraw on the next frame
     }
     anyInput(inp) { return inp.left || inp.right || inp.keys.length > 0; }
     toggleSound() { this.soundOn = !this.soundOn; this.sound.setEnabled(this.soundOn); }
@@ -338,6 +343,7 @@
       };
       drawLines();
       const digits = [];
+      this.textEntry = 'digits';                                 // lets touch devices offer a keypad
       const drawSlots = () => {
         fb.fillRect(192, 360, 416, 32, 1);
         let s = '';
@@ -349,7 +355,7 @@
       for (;;) {
         const inp = this.takeInput();
         if (this.langChanged) drawLines();
-        if (inp.left && digits.length === 0) return this.startLevel;
+        if (inp.left && digits.length === 0) { this.textEntry = null; return this.startLevel; }
         for (const code of inp.keys) {
           const k = this.keyName(code);
           if (code === 'Backspace' && digits.length) {             // not in the original: delete the last digit
@@ -365,6 +371,7 @@
           // test backdoor (not in the original): 42000xxx starts level xxx (1..100, 101 = diploma)
           if (Math.floor(v / 1000) === 42000 && v % 1000 >= 1 && v % 1000 <= 101) return v % 1000;
           const lv = this.codes.indexOf(v, 1);
+          this.textEntry = null;
           return lv >= 1 ? lv : 0;
         }
         yield 1;
@@ -426,6 +433,7 @@
       this.drawStatusFrame();
       this.sound.play('ESINITO', 10);
       yield* this.rollIn(o);
+      if (this.onLevelStart) this.onLevelStart();
       this.takeInput();                                          // flush mouse movement
       for (;;) {
         const inp = this.takeInput();
@@ -505,6 +513,7 @@
         const c = ch.charCodeAt(0);
         return ATARI[ch] || (c > 0x1f && c < 0x7f ? c : 0);
       };
+      this.textEntry = 'text';
       for (let done = false; !done;) {
         fb.px.set(back.px);
         const nameW = E.textWidth(name);
@@ -525,6 +534,7 @@
           else if (name.length < 20) { const c = charOf(code); if (c) name.splice(cur++, 0, c); }
         }
       }
+      this.textEntry = null;
       fb.px.set(back.px); E.drawCentered(fb, name, 320, 300);
       // printer menu (F1..F3 print the diploma, F4 = don't print); here the "printout" is shown on screen
       const M = [
@@ -548,6 +558,7 @@
         while (!key) {
           const inp = this.takeInput();
           key = inp.keys.map((c) => this.keyName(c)).find((k) => /^F[1-4]$/.test(k));
+          if (!key && inp.tap) key = inp.tap.y < 165 ? 'F1' : inp.tap.y < 245 ? 'F2' : inp.tap.y < 300 ? 'F3' : 'F4';
           yield 1;
         }
         if (key === 'F4') return;
@@ -555,7 +566,12 @@
         for (;;) { const inp = this.takeInput(); if (inp.left || inp.keys.length) break; yield 1; }
         o = this.snapshot(); fb.clear(1); E.drawCentered(fb, codes(M[9]), 320, 200); yield* this.dissolve(o);
         let ans = null;
-        while (!ans) { const inp = this.takeInput(); ans = inp.keys.find((c) => c.startsWith('Key') || c === 'Enter'); yield 1; }
+        while (!ans) {
+          const inp = this.takeInput();
+          ans = inp.keys.find((c) => c.startsWith('Key') || c === 'Enter');
+          if (!ans && inp.tap) { ans = 'Key' + M[10]; this.input.keyChar[ans] = M[10]; }   // tap = yes
+          yield 1;
+        }
         const ch = (this.input.keyChar && this.input.keyChar[ans]) || this.keyName(ans);
         if (ch.toUpperCase() === M[10]) return;
       }

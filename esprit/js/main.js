@@ -8,6 +8,14 @@
   try { scaled = localStorage.getItem('esprit.scaled') !== '0'; } catch (e) { /* ignore */ }
 
   function fitCanvas(canvas) {
+    if (document.body.classList.contains('touch')) {
+      // touch devices: use the whole screen, keeping the 16:10 aspect (small screens can't afford
+      // integer scaling)
+      const s = Math.min(window.innerWidth / 640, window.innerHeight / 400);
+      canvas.style.width = Math.floor(640 * s) + 'px';
+      canvas.style.height = Math.floor(400 * s) + 'px';
+      return;
+    }
     // integer scale in *device* pixels so every ST pixel becomes an equal square block
     const dpr = window.devicePixelRatio || 1;
     const availW = (window.innerWidth - 16) * dpr, availH = (window.innerHeight - 70) * dpr;
@@ -20,6 +28,8 @@
 
   window.addEventListener('load', () => {
     const canvas = document.getElementById('screen');
+    // touch-first devices (phones, tablets) get the full-screen layout right away
+    if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
     fitCanvas(canvas);
     window.addEventListener('resize', () => fitCanvas(canvas));
     const screen = new E.Screen(canvas);
@@ -35,6 +45,11 @@
     E.loadAssets();
     E.screen = screen; E.input = input; E.sound = sound;
     E.game = new E.Game(screen, input, sound);
+    const touch = new E.Touch(canvas, input, E.game, sound);
+    E.touch = touch;
+    E.game.onLevelStart = () => touch.calibrate();            // neutral tilt = how the device is held now
+    setInterval(() => touch.update(), 250);
+    window.addEventListener('orientationchange', () => setTimeout(() => { fitCanvas(canvas); touch.calibrate(); }, 300));
     // debug options in the URL hash: #level=N (start at level N), #ticks=N (run N VBLs at once),
     // #keys=F3,5 (queue key presses), #mouse=dx,dy (constant mouse motion per VBL)
     const opt = Object.fromEntries(location.hash.slice(1).split('&').filter(Boolean).map((kv) => kv.split('=')));

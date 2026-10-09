@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <title>esprit</title>
 <style>
   :root { --bg: #1d1d1d; --fg: #d8d8d8; --dim: #8a8a8a; }
@@ -14,17 +17,50 @@
     background: #fff; cursor: none; }
   #help { color: var(--dim); margin-top: 8px; text-align: center; max-width: 900px; padding: 0 16px; }
   #help kbd { border: 1px solid #555; border-radius: 3px; padding: 0 4px; font: inherit; color: var(--fg); }
+  /* touch devices: full screen picture, no help text, no browser gestures */
+  body.touch { background: #000; overscroll-behavior: none; }
+  body.touch #help { display: none; }
+  canvas#screen { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  #kbd { position: fixed; left: -1000px; top: 0; width: 10px; height: 10px; opacity: 0; font-size: 16px; }
+  #menu { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.72); z-index: 10;
+    align-items: center; justify-content: center; }
+  #menu.open { display: flex; }
+  #menu .box { background: #fff; color: #000; border: 3px solid #000; outline: 2px solid #fff; padding: 12px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px; min-width: min(560px, 92vw); max-height: 92vh; overflow: auto; }
+  #menu button { font: 600 16px/1.2 system-ui, sans-serif; padding: 12px 10px; background: #fff; color: #000;
+    border: 2px solid #000; border-radius: 0; touch-action: manipulation; }
+  #menu button:active { background: #000; color: #fff; }
+  #menu .wide { grid-column: 1 / -1; }
+  #menu .tilt { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+  #menu .tilt button { min-width: 56px; }
+  #rotate { display: none; position: fixed; inset: 0; background: #000; color: #fff; z-index: 20;
+    align-items: center; justify-content: center; text-align: center; font: 600 18px/1.4 system-ui, sans-serif; padding: 24px; }
+  @media (orientation: portrait) { body.touch #rotate { display: flex; } }
 </style>
 </head>
 <body>
 <div id="wrap"><canvas id="screen" width="640" height="400"></canvas></div>
+<input id="kbd" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" aria-label="text input">
+<div id="menu" role="dialog" aria-label="menu"><div class="box">
+  <button data-act="close" class="wide">Continue</button>
+  <button data-act="restart">Start level again</button>
+  <button data-act="abort">Interrupt game</button>
+  <button data-act="sound">Sound</button>
+  <button data-act="lang">Language</button>
+  <div class="tilt wide"><button data-act="tiltdown">&minus;</button><span><span id="tiltlabel">Tilt</span> <span id="tiltval">100%</span></span><button data-act="tiltup">+</button></div>
+  <button data-act="calib">Calibrate tilt</button>
+  <button data-act="fullscreen">Fullscreen</button>
+</div></div>
+<div id="rotate">&#x21bb;<br>Please turn the device to landscape.</div>
 <div id="help">
   Click into the picture to capture the mouse (<kbd>Esc</kbd> releases it).
   Move the mouse to accelerate the marble. Left button: use the left inventory object,
   right button: rotate the inventory.
   <kbd>+</kbd>/<kbd>-</kbd> mouse sensitivity (<span id="sens">100</span>%) ·
   <kbd>F1</kbd> sound on/off · <kbd>F2</kbd> interrupt game · <kbd>F3</kbd> restart level ·
-  <kbd>Insert</kbd> boss key (Atari <i>Help</i>) · <kbd>F9</kbd> original size / scaled · <kbd>F10</kbd> language (Deutsch / English / Français)
+  <kbd>Insert</kbd> boss key (Atari <i>Help</i>) · <kbd>F9</kbd> original size / scaled · <kbd>F10</kbd> language (Deutsch / English / Français)<br>
+  On phones and tablets: tilt to steer, tap to use the left object, drag on the inventory to rotate it,
+  tap the <i>esprit</i> logo for the menu.
 </div>
 <script src="js/data.js"></script>
 <script src="js/tables.js"></script>
@@ -42,6 +78,7 @@
 <script src="js/draw.js"></script>
 <script src="js/levelrt.js"></script>
 <script src="js/game.js"></script>
+<script src="js/touch.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>
