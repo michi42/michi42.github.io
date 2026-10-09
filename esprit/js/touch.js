@@ -5,6 +5,7 @@
 //   - drag on the inventory   = right mouse button (rotate the inventory, one step per 32 px)
 //   - tap on the esprit logo  = menu (restart, abort, sound, language, tilt sensitivity, calibrate)
 //   - tilt the device         = mouse movement
+// Landscape is only locked while in fullscreen; in portrait the picture is letterboxed.
 'use strict';
 (function (E) {
   const G0 = 9.81;
@@ -20,7 +21,7 @@
       this.flip = null;               // sign convention of accelerationIncludingGravity (detected)
       this.zAvg = 0;
       this.gain = 1.0;                // mickeys per frame per m/s^2
-      try { const g = +localStorage.getItem('esprit.tilt'); if (g > 0) this.gain = g; } catch (e) { /* ignore */ }
+      try { const g = +localStorage.getItem('esprit.tilt'); if (g > 0) this.gain = Math.max(0.25, Math.min(4, g)); } catch (e) { /* ignore */ }
       this.drag = null;
       this.menuEl = document.getElementById('menu');
       this.kbd = document.getElementById('kbd');
@@ -32,6 +33,8 @@
       canvas.addEventListener('touchend', (e) => this.onEnd(e), opts);
       canvas.addEventListener('touchcancel', (e) => this.onEnd(e), opts);
       window.addEventListener('devicemotion', (e) => this.onMotion(e));
+      document.addEventListener('fullscreenchange', () => this.onFullscreenChange());
+      document.addEventListener('webkitfullscreenchange', () => this.onFullscreenChange());
       this.setupMenu();
       this.setupKeyboard();
     }
@@ -46,19 +49,27 @@
       this.sound.unlock();
       const el = document.documentElement;
       const fs = el.requestFullscreen || el.webkitRequestFullscreen;
-      if (fs && !document.fullscreenElement && !document.webkitFullscreenElement) {
+      // landscape is only locked while in fullscreen; otherwise portrait just letterboxes the picture
+      if (fs && !this.isFullscreen()) {
         try {
           const p = fs.call(el, { navigationUI: 'hide' });
           if (p && p.then) p.then(() => this.lockLandscape(), () => {});
         } catch (e) { /* not allowed */ }
-      } else this.lockLandscape();
+      } else if (this.isFullscreen()) this.lockLandscape();
       // iOS 13+: motion sensors need an explicit permission from a user gesture
       if (window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === 'function') {
         DeviceMotionEvent.requestPermission().catch(() => {});
       }
     }
+    isFullscreen() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
     lockLandscape() {
-      if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {});
+      if (this.isFullscreen() && screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {});
+    }
+    onFullscreenChange() {
+      if (!this.isFullscreen() && screen.orientation && screen.orientation.unlock) {
+        try { screen.orientation.unlock(); } catch (e) { /* not supported */ }
+      }
+      window.dispatchEvent(new Event('resize'));
     }
     onStart(e) {
       e.preventDefault();
@@ -128,7 +139,7 @@
       return { x: x * this.gain, y: y * this.gain };
     }
     setGain(g) {
-      this.gain = Math.max(0.1, Math.min(10, g));
+      this.gain = Math.max(0.25, Math.min(4, g));
       try { localStorage.setItem('esprit.tilt', String(this.gain)); } catch (e) { /* ignore */ }
       this.updateMenu();
     }
@@ -145,12 +156,13 @@
         else if (act === 'abort') key('F2');
         else if (act === 'sound') { this.game.toggleSound(); this.updateMenu(); }
         else if (act === 'lang') { this.game.cycleLanguage(); this.updateMenu(); }
-        else if (act === 'tiltdown') this.setGain(this.gain * 0.8);
-        else if (act === 'tiltup') this.setGain(this.gain * 1.25);
         else if (act === 'calib') { this.calibrate(); this.closeMenu(); }
         else if (act === 'fullscreen') this.toggleFullscreen();
       });
       m.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+      // sensitivity slider: logarithmic, -200..200 = 25%..400% (2^(v/100))
+      const sl = m.querySelector('#tiltslider');
+      if (sl) sl.addEventListener('input', () => this.setGain(Math.pow(2, +sl.value / 100)));
     }
     openMenu() {
       if (!this.menuEl) return;
@@ -177,10 +189,12 @@
       set('calib', T('Neigung kalibrieren', 'Calibrate tilt', "Calibrer l'inclinaison"));
       set('fullscreen', T('Vollbild', 'Fullscreen', 'Plein écran'));
       const g = m.querySelector('#tiltval'); if (g) g.textContent = Math.round(this.gain * 100) + '%';
-      const tl = m.querySelector('#tiltlabel'); if (tl) tl.textContent = T('Neigung', 'Tilt', 'Inclinaison');
+      const sl = m.querySelector('#tiltslider');
+      if (sl && document.activeElement !== sl) sl.value = String(Math.round(Math.log2(this.gain) * 100));
+      const tl = m.querySelector('#tiltlabel'); if (tl) tl.textContent = T('Empfindlichkeit', 'Tilt sensitivity', 'Sensibilité');
     }
     toggleFullscreen() {
-      if (document.fullscreenElement || document.webkitFullscreenElement) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      if (this.isFullscreen()) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
       else { this.started = false; this.firstGesture(); }
     }
 

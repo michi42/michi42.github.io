@@ -18,7 +18,7 @@
   #help { color: var(--dim); margin-top: 8px; text-align: center; max-width: 900px; padding: 0 16px; }
   #help kbd { border: 1px solid #555; border-radius: 3px; padding: 0 4px; font: inherit; color: var(--fg); }
   /* touch devices: full screen picture, no help text, no browser gestures */
-  body.touch { background: #000; overscroll-behavior: none; }
+  body.touch { background: #000; overscroll-behavior: none; }   /* portrait: the picture is letterboxed */
   body.touch #help { display: none; }
   canvas#screen { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
   #kbd { position: fixed; left: -1000px; top: 0; width: 10px; height: 10px; opacity: 0; font-size: 16px; }
@@ -31,11 +31,10 @@
     border: 2px solid #000; border-radius: 0; touch-action: manipulation; }
   #menu button:active { background: #000; color: #fff; }
   #menu .wide { grid-column: 1 / -1; }
-  #menu .tilt { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
-  #menu .tilt button { min-width: 56px; }
-  #rotate { display: none; position: fixed; inset: 0; background: #000; color: #fff; z-index: 20;
-    align-items: center; justify-content: center; text-align: center; font: 600 18px/1.4 system-ui, sans-serif; padding: 24px; }
-  @media (orientation: portrait) { body.touch #rotate { display: flex; } }
+  #menu .tilt { display: grid; grid-template-columns: auto 1fr 4.5em; align-items: center; gap: 12px;
+    font: 600 16px/1.2 system-ui, sans-serif; padding: 4px 2px; }
+  #menu .tilt input[type=range] { width: 100%; height: 32px; accent-color: #000; touch-action: pan-x; }
+  #menu #tiltval { text-align: right; font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
@@ -47,11 +46,12 @@
   <button data-act="abort">Interrupt game</button>
   <button data-act="sound">Sound</button>
   <button data-act="lang">Language</button>
-  <div class="tilt wide"><button data-act="tiltdown">&minus;</button><span><span id="tiltlabel">Tilt</span> <span id="tiltval">100%</span></span><button data-act="tiltup">+</button></div>
+  <label class="tilt wide"><span id="tiltlabel">Tilt sensitivity</span>
+    <input id="tiltslider" type="range" min="-200" max="200" step="1" value="0" aria-describedby="tiltval">
+    <span id="tiltval">100%</span></label>
   <button data-act="calib">Calibrate tilt</button>
   <button data-act="fullscreen">Fullscreen</button>
 </div></div>
-<div id="rotate">&#x21bb;<br>Please turn the device to landscape.</div>
 <div id="help">
   Click into the picture to capture the mouse (<kbd>Esc</kbd> releases it).
   Move the mouse to accelerate the marble. Left button: use the left inventory object,
