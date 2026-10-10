@@ -10,8 +10,10 @@
 <style>
   :root { --bg: #1d1d1d; --fg: #d8d8d8; --dim: #8a8a8a; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
-    font: 13px/1.4 system-ui, sans-serif; }
-  body { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    font: 13px/1.4 system-ui, sans-serif;
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+  #kbd { -webkit-user-select: text; user-select: text; }
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center; box-sizing: border-box; }
   #wrap { position: relative; overflow: visible; }
   canvas#screen { display: block; position: absolute; left: 0; top: 0; transform-origin: 0 0;
     image-rendering: pixelated; image-rendering: crisp-edges;
@@ -23,6 +25,9 @@
   body.touch #help { display: none; }
   canvas#screen { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
   #kbd { position: fixed; left: -1000px; top: 0; width: 10px; height: 10px; opacity: 0; font-size: 16px; }
+  #fsbtn { display: none; position: fixed; z-index: 5; width: 48px; height: 48px; padding: 0; border: 2px solid #fff;
+    background: #000; color: #fff; font: 600 22px/1 system-ui, sans-serif; touch-action: manipulation; }
+  #fsbtn:active { background: #fff; color: #000; }
   #menu { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.72); z-index: 10;
     align-items: center; justify-content: center; }
   #menu.open { display: flex; }
@@ -40,6 +45,7 @@
 </head>
 <body>
 <div id="wrap"><canvas id="screen" width="640" height="400"></canvas></div>
+<button id="fsbtn" type="button" aria-label="Fullscreen" title="Fullscreen">&#x26F6;</button>
 <input id="kbd" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" aria-label="text input">
 <div id="menu" role="dialog" aria-label="menu"><div class="box">
   <button data-act="close" class="wide">Continue</button>

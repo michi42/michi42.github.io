@@ -15,11 +15,22 @@
   const isTouch = () => document.body.classList.contains('touch');
   const integerScaling = () => (intLock === null ? !isTouch() : intLock);
 
+  const fullscreenSupported = () => !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+  const isFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+
   function fitCanvas(canvas) {
     const dpr = window.devicePixelRatio || 1;
     const touch = isTouch();
+    // touch devices outside fullscreen: reserve a 64 px strip for the fullscreen button, beside the
+    // picture in landscape and below it in portrait
+    const btn = document.getElementById('fsbtn');
+    const showBtn = touch && !isFullscreen() && fullscreenSupported();
+    const landscape = window.innerWidth >= window.innerHeight;
+    const resW = showBtn && landscape ? 64 : 0, resH = showBtn && !landscape ? 64 : 0;
+    document.body.style.paddingRight = resW + 'px';
+    document.body.style.paddingBottom = resH + 'px';
     // available area in device pixels (desktop leaves room for the help text)
-    const availW = (window.innerWidth - (touch ? 0 : 16)) * dpr, availH = (window.innerHeight - (touch ? 0 : 70)) * dpr;
+    const availW = (window.innerWidth - (touch ? resW : 16)) * dpr, availH = (window.innerHeight - (touch ? resH : 70)) * dpr;
     let s = Math.min(availW / 640, availH / 400);          // scale in device pixels per ST pixel
     if (integerScaling() && s >= 1) s = Math.floor(s);
     if (!scaled && !touch) s = Math.min(s, Math.max(1, Math.round(dpr)));   // original size: 640x400 at native density
@@ -36,6 +47,12 @@
     // snap the origin onto the device-pixel grid (centring can leave it at a fractional position)
     const ox = (Math.round(r.left * dpr) - r.left * dpr) / dpr, oy = (Math.round(r.top * dpr) - r.top * dpr) / dpr;
     canvas.style.transform = `translate(${ox}px, ${oy}px) scale(${wDev / dpr / 640}, ${hDev / dpr / 400})`;
+    if (btn) {
+      btn.style.display = showBtn ? 'block' : 'none';
+      // the button sits centred in the reserved strip at the right (landscape) or bottom (portrait)
+      btn.style.left = landscape ? (window.innerWidth - resW / 2 - 24) + 'px' : (window.innerWidth / 2 - 24) + 'px';
+      btn.style.top = landscape ? (window.innerHeight / 2 - 24) + 'px' : (window.innerHeight - resH / 2 - 24) + 'px';
+    }
   }
   E.fitCanvas = () => fitCanvas(document.getElementById('screen'));
   E.integerScaling = integerScaling;
@@ -74,6 +91,10 @@
     E.game = new E.Game(screen, input, sound);
     const touch = new E.Touch(canvas, input, E.game, sound);
     E.touch = touch;
+    const fsbtn = document.getElementById('fsbtn');
+    if (fsbtn) fsbtn.addEventListener('click', (e) => { e.preventDefault(); touch.toggleFullscreen(); });
+    // no text selection anywhere (double clicks / long presses), except in the hidden text field
+    document.addEventListener('selectstart', (e) => { if (e.target.id !== 'kbd') e.preventDefault(); });
     E.game.onLevelStart = () => touch.calibrate();            // neutral tilt = how the device is held now
     setInterval(() => touch.update(), 250);
     window.addEventListener('orientationchange', () => setTimeout(() => { fitCanvas(canvas); touch.calibrate(); }, 300));
