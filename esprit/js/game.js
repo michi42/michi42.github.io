@@ -438,8 +438,10 @@
       E.drawPlayfield(this.fb, lv);
       this.drawStatusFrame();
       this.sound.play('ESINITO', 10);
-      yield* this.rollIn(o);
+      // tilt calibration (touch devices) when the roll-in starts, so the player can already tilt
+      // towards the first move while the level unrolls
       if (this.onLevelStart) this.onLevelStart();
+      yield* this.rollIn(o);
       this.takeInput();                                          // flush mouse movement
       for (;;) {
         const inp = this.takeInput();
