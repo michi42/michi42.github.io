@@ -10,14 +10,16 @@ import {
   beamGraphic, beamGraphics, emitterBarrels, rotForEdges,
 } from './elements.js';
 import {
-  AUTO_AREAS, AUTO_SETS, ENTRIES, ENTRY_BY_ID, EXIT_INSET, OIL_FLIPPED,
-  OIL_SLICK, PALETTE, TEXT_FILE,
+  AUTO_AREAS, AUTO_SETS, DIR8, ENTRIES, ENTRY_BY_ID, EXIT_INSET, OIL_FLIPPED,
+  OIL_SLICK, PALETTE, PARTICLE, PARTICLE_PATH, RETIRED, TEXT_FILE,
+  isFixed, pathColour, swirlOf,
   assemblyOf, assemblySquares, assetUrl, beltWindow, blockedEdges,
   distributorExits, emitterSpec, entryForFile, exitBadge, isDistributor,
   kindOfFile, mirrorTurn, mountBases, oilVariant, openVariant, phaseBadge,
   phaseSpec, prettyLabel, propertiesOf, shadowFor, slotOf, submergedBy,
   wallDepth, zIndexOf,
 } from './catalog.js';
+import { fieldSwirl, onSwirlsReady, staleSwirl, swirlBase, swirlFrame } from './swirl.js';
 
 /* ------------------------------------------------------------------ *
  * Image cache                                                         *
@@ -141,11 +143,23 @@ function evictConflicts(cell, keep) {
 
 /** Bring a cell from an older save into the one-element-per-slot shape. */
 function normalizeCell(cell) {
+  retire(cell);
   const bySlot = new Map();
   for (const p of cell.items) bySlot.set(slotOf(p), p);
   cell.items = [...bySlot.values()];
   sortItems(cell);
   return cell;
+}
+
+/* A board saved with a ready-made graphic that has since been retired gets the
+ * floor and element it showed instead. */
+function retire(cell) {
+  cell.items = cell.items.map(p => {
+    const swap = RETIRED[p.file];
+    if (!swap) return p;
+    cell.floor = { file: swap[0], rot: 0 };
+    return Object.assign({}, p, { file: swap[1] });
+  });
 }
 
 function eachPlacement(fn) {
@@ -387,7 +401,7 @@ function pitPieces(kind, c, r) {
   const set = AUTO_AREAS[kind];
   const out = [];
 
-  if (!isPit(c, r, kind)) return out;
+  if (!isPit(c, r, kind) || set.rimless) return out;
 
   const open = [0, 1, 2, 3].filter(e => !isPit(c + DIR_STEP[e][0], r + DIR_STEP[e][1], kind));
 
@@ -573,6 +587,122 @@ function refreshOil(c, r) {
   }
 }
 
+/* ------------------------------------------------------------------ *
+ * Drawing particle paths                                              *
+ * ------------------------------------------------------------------ */
+
+/*
+ * A path is held as the directions it runs on in from each square, one of the
+ * eight around it, and is only ever drawn between two squares that both say
+ * so. The swirl under it is the accelerator's area tool, laid as the path is
+ * drawn, so a path always has its field round it.
+ */
+function pathOf(c, r) {
+  const cell = cellAt(c, r);
+  return cell ? cell.items.find(p => p.file === PARTICLE_PATH) || null : null;
+}
+
+function dir8(dc, dr) { return DIR8.findIndex(([x, y]) => x === dc && y === dr); }
+
+/** The kind of swirl a square lies in, or null if it is not accelerator. */
+function swirlAt(c, r) {
+  const cell = cellAt(c, r);
+  return cell && cell.floor ? swirlOf(cell.floor.file) || null : null;
+}
+
+/* Lay an accelerator's swirl of `kind` under a square, unless it already lies
+ * in one — of either kind: a path run on through a field keeps to it. */
+function underlayAccelerator(c, r, kind) {
+  return !swirlAt(c, r) && paintPit(c, r, PARTICLE.areas[kind] || PARTICLE.areas.cw, true);
+}
+
+/** Take a square's swirl off, giving back the floor it was laid over. */
+function liftAccelerator(c, r) {
+  const cell = cellAt(c, r);
+  return !!swirlAt(c, r) && paintPit(c, r, cell.floor.auto, false);
+}
+
+/** Run a path between two neighbouring squares, either way. */
+function linkPath(c, r, c2, r2, kind = 'cw') {
+  const d = dir8(c2 - c, r2 - r);
+  if (d < 0 || !cellAt(c, r) || !cellAt(c2, r2)) return false;
+  let changed = false;
+  for (const [x, y, k] of [[c, r, d], [c2, r2, (d + 4) % 8]]) {
+    changed = underlayAccelerator(x, y, kind) || changed;
+    let p = pathOf(x, y);
+    if (!p) {
+      p = { file: PARTICLE_PATH, rot: 0, auto: 'particle', links: [] };
+      addToCell(cellAt(x, y), p);
+    }
+    if (!p.links.includes(k)) {
+      p.links = [...p.links, k].sort((a, b) => a - b);
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+/** Take the path off a square, and with it the ends running in from around it. */
+function clearPath(c, r) {
+  const cell = cellAt(c, r);
+  const p = pathOf(c, r);
+  if (!p) return false;
+  cell.items = cell.items.filter(q => q !== p);
+  tidyPaths(c, r);
+  return true;
+}
+
+/*
+ * Drop the ends of path that no longer meet anything, around a square that
+ * changed — and a square left with no path running through it at all.
+ */
+function tidyPaths(c, r) {
+  const keep = [];
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
+      const x = c + dc, y = r + dr;
+      const p = pathOf(x, y);
+      if (!p) continue;
+      keep.push([x, y, p, (p.links || []).filter(k => {
+        const q = pathOf(x + DIR8[k][0], y + DIR8[k][1]);
+        return q && (q.links || []).includes((k + 4) % 8);
+      })]);
+    }
+  }
+  for (const [x, y, p, links] of keep) {
+    p.links = links;
+    if (!links.length) {
+      const cell = cellAt(x, y);
+      cell.items = cell.items.filter(q => q !== p);
+    }
+  }
+}
+
+/*
+ * A path is drawn through the middle of squares, so a drag joins a square on
+ * once the pointer comes near its middle. That is what lets it run diagonally:
+ * going from one square to the next one over and down, the pointer crosses the
+ * corner of a square beside them but nowhere near its middle. A pointer moving
+ * fast enough to miss squares out has the gap filled in straight.
+ */
+const PATH_REACH = 0.4;
+
+function trailStep(p) {
+  const dx = p.fx - 0.5, dy = p.fy - 0.5;
+  if (dx * dx + dy * dy > PATH_REACH * PATH_REACH) return false;
+  const last = stroke.trail;
+  if (last.c === p.c && last.r === p.r) return false;
+  let changed = false;
+  let { c, r } = last;
+  while (c !== p.c || r !== p.r) {
+    const nc = c + Math.sign(p.c - c), nr = r + Math.sign(p.r - r);
+    changed = linkPath(c, r, nc, nr, last.kind) || changed;
+    c = nc; r = nr;
+  }
+  stroke.trail = { c: p.c, r: p.r, kind: last.kind };
+  return changed;
+}
+
 /*
  * Every piece the painting tools lay is stamped with the tool that laid it, so
  * a piece taken away or turned by any other means — the eraser, the cell panel,
@@ -583,6 +713,7 @@ function repairAuto(c, r, kinds) {
     if (AUTO_SETS[kind]) refreshAuto([[c, r]], kind);
     else if (AUTO_AREAS[kind]) refreshPits(c, r);
     else if (kind === 'oil') refreshOil(c, r);
+    else if (kind === 'particle') tidyPaths(c, r);
   }
 }
 
@@ -1047,6 +1178,124 @@ function drawBeltWindow(g, host, belt, x, y, tile, resolve) {
   g.restore();
 }
 
+/* ------------------------------------------------------------------ *
+ * Particle accelerators                                               *
+ * ------------------------------------------------------------------ */
+
+/*
+ * Which squares make up each field of accelerator: squares of the same kind of
+ * swirl that touch, corner to corner as well as side by side, since a path
+ * runs on diagonally from one to the next. Each field is one vortex, turning
+ * about the middle of the rectangle it fills.
+ */
+function swirlFields() {
+  const at = new Map();
+  for (let r = 0; r < state.rows; r++) {
+    for (let c = 0; c < state.cols; c++) {
+      const kind = swirlAt(c, r);
+      if (!kind || at.has(c + ',' + r)) continue;
+      const squares = [[c, r]];
+      at.set(c + ',' + r, null);
+      for (let i = 0; i < squares.length; i++) {
+        const [x, y] = squares[i];
+        for (const [dx, dy] of DIR8) {
+          const k = (x + dx) + ',' + (y + dy);
+          if (!at.has(k) && swirlAt(x + dx, y + dy) === kind) {
+            at.set(k, null);
+            squares.push([x + dx, y + dy]);
+          }
+        }
+      }
+      const xs = squares.map(q => q[0]), ys = squares.map(q => q[1]);
+      const c0 = Math.min(...xs), r0 = Math.min(...ys);
+      const field = { kind, c0, r0, w: Math.max(...xs) - c0 + 1, h: Math.max(...ys) - r0 + 1 };
+      for (const [x, y] of squares) at.set(x + ',' + y, field);
+    }
+  }
+  return at;
+}
+
+/*
+ * One square of a field's swirl, cut from the field painted whole. A field not
+ * painted yet shows what it looked like before its last change while it is,
+ * or its plain colour for a square that is new to it.
+ */
+function drawSwirlSquare(g, field, c, r, x, y, tile, now) {
+  const scale = Math.hypot(g.getTransform().a, g.getTransform().b) || 1;
+  const px = Math.min(300, Math.max(24, Math.ceil(tile * scale / 8) * 8));
+  const painted = fieldSwirl(field, px, now) || staleSwirl(field.kind, c, r);
+  if (!painted) {
+    g.fillStyle = swirlBase(field.kind);
+    g.fillRect(x, y, tile, tile);
+    return;
+  }
+  const s = painted.px;
+  g.drawImage(painted.canvas, (c - painted.c0) * s, (r - painted.r0) * s, s, s, x, y, tile, tile);
+}
+
+/* The thin dark line printed round every square, which a texture laid across
+ * squares has none of; it goes over the paths, as on the printed board. */
+function drawSquareFrame(g, x, y, tile) {
+  const w = Math.max(1, tile / TILE_PX);
+  g.save();
+  g.fillStyle = 'rgba(0, 0, 0, 0.85)';
+  g.fillRect(x, y, tile, w);
+  g.fillRect(x, y + tile - w, tile, w);
+  g.fillRect(x, y + w, w, tile - 2 * w);
+  g.fillRect(x + tile - w, y + w, w, tile - 2 * w);
+  g.restore();
+}
+
+/*
+ * The particle paths crossing one square. A path runs from the middle of a
+ * square to the middle of the next, so one running diagonally passes over the
+ * corner of the two squares beside it, and a band that wide spills into them.
+ * Each square therefore draws its neighbours' paths as well as its own, cut to
+ * its own outline: whatever order the squares are drawn in, every one has all
+ * of the paths over it and nothing drawn later covers them.
+ */
+function drawParticlePaths(g, c, r, x, y, tile) {
+  const near = [];
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
+      const p = pathOf(c + dc, r + dr);
+      if (p && p.links && p.links.length) near.push([dc, dr, p.links]);
+    }
+  }
+  if (!near.length) return;
+
+  g.save();
+  g.beginPath();
+  g.rect(x, y, tile, tile);
+  g.clip();
+  g.lineWidth = PARTICLE.width * tile / TILE_PX;
+  g.lineCap = 'butt';
+  g.lineJoin = 'miter';
+  g.miterLimit = 2.5;             // a hairpin is bevelled rather than spiked
+  for (const [dc, dr, links] of near) {
+    const under = cellAt(c + dc, r + dr).floor;
+    g.strokeStyle = pathColour(under && under.file);
+    const cx = x + (dc + 0.5) * tile, cy = y + (dr + 0.5) * tile;
+    const end = d => [cx + DIR8[d][0] * tile / 2, cy + DIR8[d][1] * tile / 2];
+    g.beginPath();
+    if (links.length === 1) {
+      g.moveTo(cx, cy);
+      g.lineTo(...end(links[0]));
+    } else {
+      /* each turn through the middle is mitred, so a bend has a clean corner
+       * and a junction is filled in all round */
+      const turns = links.length === 2 ? 1 : links.length;
+      for (let i = 0; i < turns; i++) {
+        g.moveTo(...end(links[i]));
+        g.lineTo(cx, cy);
+        g.lineTo(...end(links[(i + 1) % links.length]));
+      }
+    }
+    g.stroke();
+  }
+  g.restore();
+}
+
 /* Wash the floor back over an element standing in water, so it reads as sunk
  * into it rather than sitting on top. */
 function drawSubmerge(g, cell, p, x, y, tile, resolve) {
@@ -1353,7 +1602,10 @@ function drawExitBadges(g, p, x, y, tile, resolve) {
 }
 
 /** Draw every tile. `resolve` returns an image or null (editor: skip). */
-function drawTiles(g, tile, resolve) {
+function drawTiles(g, tile, resolve, now = false) {
+  /* the fields of accelerator, worked out once for the whole board */
+  if (!now) swirlFrame();
+  const fields = swirlFields();
   /* the background goes down first, so anything transparent lets it through */
   if (backdrop.ready) {
     g.drawImage(backdrop.img, 0, 0, state.cols * tile, state.rows * tile);
@@ -1368,6 +1620,8 @@ function drawTiles(g, tile, resolve) {
       const cell = state.cells[r][c];
       const x = c * tile, y = r * tile;
       const stack = cell.floor ? [cell.floor, ...cell.items] : cell.items;
+      /* particle paths lie on the floor, under everything standing on it */
+      if (!cell.floor) drawParticlePaths(g, c, r, x, y, tile);
       const belt = cell.items.find(q => kindOfFile(q.file).key === 'belt');
       const host = belt && cell.items.find(q => beltWindow(q.file));
       for (const p of stack) {
@@ -1390,15 +1644,34 @@ function drawTiles(g, tile, resolve) {
            * on after the beams, so the far beam is not drawn across it */
           if (layout.over) nozzles.push(lay); else lay();
         }
-        const img = barrels || p.file === TEXT_FILE ? null : resolve(p.file);
+        const field = p === cell.floor && fields.get(c + ',' + r);
+        const drawn = barrels || field || p.file === TEXT_FILE || p.file === PARTICLE_PATH;
+        const img = drawn ? null : resolve(p.file);
         if (p.file === TEXT_FILE) drawText(g, p, x, y, tile);
+        else if (field) drawSwirlSquare(g, field, c, r, x, y, tile, now);
         else if (img && p.bank) drawBank(g, img, x, y, tile, p.rot, p.bank);
-        else if (img) drawMounted(g, img, x, y, tile, p.rot, stand.in, stand.side);
+        else if (img) {
+          /* a padded cell takes what stands in it into its hollow */
+          const wash = cell.floor && submergedBy(cell.floor.file, p.file);
+          const shrink = wash && wash.scale !== 1 ? wash.scale : 0;
+          if (shrink) {
+            g.save();
+            g.translate(x + tile / 2, y + tile / 2);
+            g.scale(shrink, shrink);
+            g.translate(-x - tile / 2, -y - tile / 2);
+          }
+          drawMounted(g, img, x, y, tile, p.rot, stand.in, stand.side);
+          if (shrink) g.restore();
+        }
         /* paint the belt's arrow out straight away, before anything else in
          * the square is drawn over it */
         if (host && p === belt) maskBeltArrow(g, beltWindow(host.file), belt, x, y, tile);
         if (p === host) drawBeltWindow(g, p, belt, x, y, tile, resolve);
         drawSubmerge(g, cell, p, x, y, tile, resolve);
+        if (p === cell.floor) {
+          drawParticlePaths(g, c, r, x, y, tile);
+          if (field) drawSquareFrame(g, x, y, tile);
+        }
         if (p.phases && p.phases.length) numbers.push([p, x, y, belt, stand.in]);
         if (p.route) drawExitBadges(g, p, x, y, tile, resolve);
       }
@@ -1581,6 +1854,7 @@ function paint(c, r, at) {
   const cell = cellAt(c, r);
   if (!cell) return false;
   if (state.brush.slick) return paintOil(c, r, true);
+  if (state.brush.trail) return underlayAccelerator(c, r, state.brush.trail);
   if (state.brush.area) return paintPit(c, r, state.brush.area, true);
   if (state.brush.assembly) return placeAssembly(c, r, state.brush);
   if (state.brush.auto) {
@@ -1608,6 +1882,8 @@ function eraseTop(c, r, at) {
    * whole piece, which may be carrying other edges too */
   if (state.brush && state.brush.slick) return paintOil(c, r, false);
   if (state.brush && state.brush.area) return paintPit(c, r, state.brush.area, false);
+  /* the path tool rubs out the path first, and the swirl once it has gone */
+  if (state.brush && state.brush.trail) return clearPath(c, r) || liftAccelerator(c, r);
   if (at && at.edge !== undefined && state.brush && state.brush.auto) {
     return paintEdge(at.c, at.r, at.edge, state.brush.auto, false);
   }
@@ -1683,7 +1959,7 @@ function rotateAssembly(c, r, tag, dir) {
 /** Turn one placement; `dir` is +1 clockwise, -1 anti-clockwise. */
 function rotatePlacement(c, r, p, dir) {
   const cell = cellAt(c, r);
-  if (!cell) return false;
+  if (!cell || isFixed(p.file)) return false;
   if (p.asm) return rotateAssembly(c, r, p.asm, dir);
   p.rot = (p.rot + (dir < 0 ? 3 : 1)) % 4;
   if (p !== cell.floor) evictConflicts(cell, p);
@@ -1818,6 +2094,12 @@ canvas.addEventListener('pointerdown', e => {
   state.sel = p;
   pushUndo();
   stroke = { cells: new Set(), dirty: false, lock: null };
+  if (state.tool === 'paint' && state.brush && state.brush.trail && !e.altKey) {
+    stroke.trail = { c: p.c, r: p.r, kind: state.brush.trail };
+    stroke.dirty = underlayAccelerator(p.c, p.r, state.brush.trail);
+    afterChange();
+    return;
+  }
   const t = edgeTarget(p, null);
   if (t) stroke.lock = edgeLock(t);          // pin the line this drag follows
   stroke.cells.add(strokeKey(p, t));
@@ -1838,6 +2120,10 @@ canvas.addEventListener('pointermove', e => {
   if (p) setStatus(describeCell(p.c, p.r));
 
   if (!stroke || !p) return;
+  if (stroke.trail) {
+    if (trailStep(p)) { stroke.dirty = true; state.sel = { c: p.c, r: p.r }; afterChange(); }
+    return;
+  }
   const t = edgeTarget(p, stroke.lock);
   if (state.brush && state.brush.auto && !t) return;      // off the pinned line
   const key = strokeKey(p, t);
@@ -1908,7 +2194,7 @@ const OPEN_BY_DEFAULT = new Set(['Floors', 'Conveyors']);
 
 function swatchFor(entry) {
   const b = document.createElement('button');
-  const tool = entry.auto || entry.area || entry.slick;
+  const tool = entry.auto || entry.area || entry.slick || entry.trail;
   b.className = 'sw' + (entry.files.length > 1 ? ' multi' : '') + (tool ? ' tool' : '');
   b.dataset.id = entry.id;
   b.title = entry.label
@@ -2109,6 +2395,7 @@ function renderBrush() {
   const notes = [e.assembly ? 'covers ' + assemblySquares(e.files[0]).length + ' squares'
     : e.auto ? 'paints runs of ' + e.auto
     : e.slick ? 'paints a trail of oil'
+    : e.trail ? 'draws particle paths'
     : e.area ? 'paints areas of ' + AUTO_AREAS[e.area].label.toLowerCase()
     : e.layer === 'floor' ? 'floor layer' : 'overlay'];
   if (e.files.length > 1) notes.push(e.files.length + ' variants');
@@ -2120,10 +2407,18 @@ function renderBrush() {
   head.append(img, txt);
   box.appendChild(head);
 
-  if (e.auto || e.area || e.slick) {
+  if (e.auto || e.area || e.slick || e.trail) {
     const hint = document.createElement('div');
     hint.className = 'hint';
-    hint.textContent = e.auto
+    hint.textContent = e.trail
+      ? 'Drag through the middles of squares to draw a path; it can turn and run '
+        + 'diagonally, and the swirl is laid under it for you where there is none '
+        + 'yet. Right-click takes the path off a square, and again the swirl.'
+      : e.area && AUTO_AREAS[e.area].rimless
+        ? 'Click or drag over squares to lay the swirl; next to each other they '
+          + 'join up into one field, which turns about its middle. Right-click '
+          + 'takes a square back off.'
+      : e.auto
       ? 'Click near the side of a square to wall it, and drag to carry the run '
         + 'along; the corner and join pieces are chosen for you. Right-click '
         + 'takes an edge away.'
@@ -2338,7 +2633,7 @@ async function exportPNG() {
   drawTiles(g, tile, f => {
     const rec = images.get(f);
     return rec && rec.ready ? rec.img : null;
-  });
+  }, true);
   if (els.chkExportGrid.checked) drawGridLines(g, tile, 'rgba(0,0,0,0.35)');
 
   els.btnExport.disabled = false;
@@ -2523,6 +2818,9 @@ document.addEventListener('keydown', e => {
 
 buildPalette('');
 selectEntry(ENTRY_BY_ID.get('smart:floor-plain') || ENTRIES[0]);
+/* a field of accelerator painted after the board was drawn needs drawing in */
+onSwirlsReady(scheduleRender);
+
 setTool('paint');
 setRotMode('auto');
 
@@ -2569,6 +2867,7 @@ export {
   /* the tools */
   applyTool, setTool, setRotMode, paint, eraseTop, rotateTop, paintEdge,
   paintPit, paintOil, isPit, isOil, nearestEdge, standOff, lastWheel,
+  pathOf, linkPath, clearPath,
   emitterLayout, opposingEmitter,
 
   /* drawing */

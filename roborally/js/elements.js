@@ -108,6 +108,8 @@ export class Element {
     window: null,        // a disc a conveyor underneath shows through
     washes: false,       // how thickly it washes back over what stands in it
     submerges: false,    // an element the water washes back over
+    swirl: null,         // painted, as an accelerator's swirl of this kind
+    fixed: false,        // never turned: what it shows is laid by position
     parts: null,         // [[dc, dr, name]] of the squares it also covers
     opens: null,         // [left, right, both] variants with the ends uncapped
     extras: [],          // further graphics it draws with (badges, beams, ...)
@@ -352,6 +354,16 @@ export class Mirror extends Cannon {
 export class Lettering extends Overlay {
   static defaults = { category: 'Repair & special', slotKey: 'text', z: 95,
                       lettering: true };
+}
+
+/*
+ * A particle path: a band of light from the middle of a square to the middle
+ * of each square it runs on into, drawn by the editor from the links it holds
+ * rather than from a graphic. It lies on the floor, under everything else.
+ */
+export class ParticlePath extends Overlay {
+  static defaults = { category: 'Particle accelerator', slotKey: 'particle', z: 8,
+                      fixed: true };
 }
 
 /* ------------------------------------------------------------------ *

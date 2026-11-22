@@ -15,8 +15,9 @@ import {
   ASSET_DIR, EDGE_N, EDGE_E, EDGE_S, EDGE_W, PHASES,
   Element, Floor, Overlay, Conveyor, Distributor, Ramp, Gear, Pit, Teleporter,
   Station, Decal, Flow, Fog, Hazard, Wall, Ledge, WallJoin, Cannon, Mirror,
-  Lettering, WallPortal, Bridge, Rim,
+  Lettering, WallPortal, Bridge, Rim, ParticlePath,
 } from './elements.js';
+import { SWIRLS, swirlSwatch } from './swirl.js';
 
 /* ------------------------------------------------------------------ *
  * The registry                                                        *
@@ -51,6 +52,14 @@ function numbered(pattern) { return PHASES.map(n => pattern.replace('#', n)); }
  * Floors                                                              *
  * ------------------------------------------------------------------ */
 
+/*
+ * A padded cell takes a repair site or a chop shop into its hollow: the printed
+ * Padded_Green/Orange_Double_Spanner tiles show the spanner shrunk to fit inside
+ * the cushion with the padding washed back over it — measured off those tiles,
+ * which this draws in their place.
+ */
+const PADDED = { washes: { alpha: 0.3, scale: 0.82 } };
+
 define(Floor, {
   Floor1: {}, Floor2: {}, Floor3: {},
   Floor_Cracked: { label: 'Floor — cracked' },
@@ -59,7 +68,7 @@ define(Floor, {
   Sandslip: { label: 'Floor — sand' },
   Black: { label: 'Floor — black' },
   Blank: { label: 'Nothing (transparent)' },
-  Padded_Green: {}, Padded_Orange: {}, Padded_Pink: {},
+  Padded_Green: PADDED, Padded_Orange: PADDED, Padded_Pink: PADDED,
   Radiation: {}, Radiation_Corner: {}, Radiation_Edge: {},
   Radiation_Square: { label: 'Floor — radiation' },
 });
@@ -99,6 +108,18 @@ defineHidden(Floor, { Lava: { label: 'Floor — lava' } });
 /* the rock a pool of lava banks up against, drawn along the sides the pool
  * stops at; only the strip along the foot of each is ever used */
 defineHidden(Rim, ['Lava_Edge1', 'Lava_Edge2', 'Lava_Edge3'], { category: 'Floors' });
+
+/*
+ * The swirl of a particle accelerator: blue turning clockwise, as printed on
+ * Particle Accelerator, or red turning the other way. It is not a tile but
+ * painted by js/swirl.js, a vortex to each field of it, so neighbouring squares
+ * join up; it is never turned, and it is laid by the accelerator tools rather
+ * than offered as a tile.
+ */
+defineHidden(Floor, {
+  Accelerator: { swirl: 'cw', label: 'Particle accelerator — clockwise' },
+  Accelerator_Red: { swirl: 'ccw', label: 'Particle accelerator — counter-clockwise' },
+}, { fixed: true, category: 'Particle accelerator' });
 
 /* the drain sits on a floor rather than being one */
 define(Overlay, { Water_Drain: { label: 'Drain', category: 'Floors' } });
@@ -499,8 +520,25 @@ defineHidden(Teleporter, ['Portal_Shadow', 'Pull1', 'Pull2', 'Pull3']);
 
 define(Station, ['Spanner', 'Double_Spanner', 'Chop_Shop', 'Reset'],
   { submerges: true });
-define(Station, ['Energizer', 'Jack', 'Finish', 'Repeater',
-                 'Padded_Green_Double_Spanner', 'Padded_Orange_Double_Spanner']);
+define(Station, ['Finish']);
+
+/* these act on a robot rather than repair it, so they are offered with the
+ * hazards, though each still takes a square's one station slot */
+define(Station, ['Energizer', 'Jack', 'Repeater'], { category: 'Pushers & hazards' });
+
+/*
+ * Ready-made graphics since replaced by drawing two elements together, and what
+ * a board saved with one is given instead: the floor, then what stands on it.
+ */
+export const RETIRED = {
+  Padded_Green_Double_Spanner: ['Padded_Green', 'Double_Spanner'],
+  Padded_Orange_Double_Spanner: ['Padded_Orange', 'Double_Spanner'],
+};
+/* A particle path is drawn rather than loaded, in the colour of the swirl it
+ * lies on. */
+export const PARTICLE_PATH = 'Accelerator_Path';
+defineHidden(ParticlePath, { [PARTICLE_PATH]: { label: 'Particle path' } });
+
 /* Lettering for a board title: it carries words rather than a graphic. The name
  * begins with @ so it can never collide with a file in assets/. */
 export const TEXT_FILE = '@Text';
@@ -569,6 +607,7 @@ export const CATEGORIES = [
   'Teleporters',
   'Oil, fog & waste',
   'Other',
+  'Particle accelerator',
   'Pits (custom)',
 ];
 
@@ -644,6 +683,8 @@ export function wallDepth(file) { return elementOf(file).depth; }
 export function mountBases(file) { return elementOf(file).mounts; }
 export function mountEdge(file, rot) { return elementOf(file).mountEdge(rot); }
 export function mirrorTurn(file, rot) { return elementOf(file).mirrorTurn(rot); }
+export function swirlOf(file) { return elementOf(file).swirl; }
+export function isFixed(file) { return elementOf(file).fixed; }
 
 /*
  * A repair site, workshop or reset point standing in water has the water washed
@@ -651,18 +692,20 @@ export function mirrorTurn(file, rot) { return elementOf(file).mirrorTurn(rot); 
  * `Water_Double_Spanner` tile shows — rather than needing a separate graphic
  * for every combination.
  */
-export const SUBMERGE = { alpha: 0.35 };
+export const SUBMERGE = { alpha: 0.35, scale: 1 };
 
 /*
  * The wash to draw back over `file`, or null if what it stands on does not wash
  * over it. A floor says how thickly it washes: water lets a repair site read
  * through it easily, ice hardly at all, which is how the printed boards have
- * them.
+ * them. A padded cell also says how far the element shrinks to sit in it.
  */
 export function submergedBy(floorFile, file) {
   const washes = floorFile && elementOf(floorFile).washes;
   if (!washes || !elementOf(file).submerges) return null;
-  return washes === true ? SUBMERGE : { alpha: washes };
+  if (washes === true) return SUBMERGE;
+  if (typeof washes === 'number') return { alpha: washes, scale: 1 };
+  return Object.assign({ scale: 1 }, washes);
 }
 
 /* ------------------------------------------------------------------ *
@@ -744,7 +787,35 @@ export const AUTO_AREAS = {
     cat: 'Floors', bank: 26, thumb: 'Ice1', spin: true,
     banks: ['Ice_Edge1', 'Ice_Edge2', 'Ice_Edge3'],
   },
+  /* the swirl of an accelerator just stops at the edge of the field, with no
+   * rim; it joins up with itself by being painted a field at a time */
+  accel: {
+    label: 'Accelerator — clockwise, blue', floor: 'Accelerator',
+    cat: 'Particle accelerator', thumb: 'Accelerator', rimless: true,
+  },
+  accelccw: {
+    label: 'Accelerator — counter-clockwise, red', floor: 'Accelerator_Red',
+    cat: 'Particle accelerator', thumb: 'Accelerator_Red', rimless: true,
+  },
 };
+
+/*
+ * Particle paths run from the middle of a square to the middle of any of the
+ * eight around it, so a link is one of eight directions, clockwise from north.
+ * A path drawn through a square lays an accelerator's swirl under it — the
+ * kind the path tool is for — and takes its colour from the swirl it is on.
+ */
+export const DIR8 = [[0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]];
+export const PARTICLE = {
+  areas: { cw: 'accel', ccw: 'accelccw' },   // the area tool for each kind of swirl
+  width: 21,              // px at 150 px to the square, as printed
+};
+
+/** The colour of a path lying on `floorFile`: the printed blue off a swirl. */
+export function pathColour(floorFile) {
+  const kind = floorFile && elementOf(floorFile).swirl;
+  return (SWIRLS[kind] || SWIRLS.cw).path;
+}
 
 /*
  * Oil runs in a trail from square to square, so its tiles are chosen by which
@@ -878,6 +949,15 @@ const AUTO_ENTRIES = [
     e.slick = true;
     return e;
   })(),
+  ...[['cw', 'blue'], ['ccw', 'red']].map(([kind, colour]) => {
+    const e = entry({
+      id: 'trail:' + kind, label: 'Particle path — ' + colour + ' (auto)',
+      cat: 'Particle accelerator', layer: 'overlay',
+      files: [PARTICLE_PATH], thumb: 'swatch:path:' + kind, smart: true,
+    });
+    e.trail = kind;
+    return e;
+  }),
   ...Object.keys(AUTO_AREAS).map(kind => {
     const e = entry({
       id: 'area:' + kind,
@@ -944,5 +1024,10 @@ const TEXT_THUMB = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
 
 export function assetUrl(file) {
   if (file === TEXT_FILE) return TEXT_THUMB;
+  /* the swirl and the paths are painted, so their swatches are too */
+  if (file.startsWith('swatch:path:')) return swirlSwatch(file.slice(12), true);
+  const el = elementOf(file);
+  if (el.swirl) return swirlSwatch(el.swirl, false);
+  if (file === PARTICLE_PATH) return swirlSwatch('cw', true);
   return ASSET_DIR + file + '.png';
 }
